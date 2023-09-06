@@ -1,0 +1,6 @@
+ -c requirements.txt
+pdbpp
+pytest
+pip-tools
+invoke
+watchdog

@@ -1,0 +1,10 @@
+botocore>=1.29.143  # resolution takes ages without this
+boto3
+humanize
+numpy
+openai
+pandas
+pydantic
+scipy
+streamlit>=1.26
+wordcloud
