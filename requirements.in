@@ -1,9 +1,11 @@
-botocore>=1.29.143  # resolution takes ages without this
 boto3
+botocore>=1.29.143  # resolution takes ages without this
 humanize
+logzero
 numpy
 openai
 pandas
+pillow
 pydantic
 scipy
 streamlit>=1.26

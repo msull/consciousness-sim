@@ -74,6 +74,8 @@ jsonschema-specifications==2023.7.1
     # via jsonschema
 kiwisolver==1.4.5
     # via matplotlib
+logzero==1.7.0
+    # via -r requirements.in
 markdown-it-py==3.0.0
     # via rich
 markupsafe==2.1.3
@@ -112,6 +114,7 @@ pandas==2.1.0
     #   streamlit
 pillow==9.5.0
     # via
+    #   -r requirements.in
     #   matplotlib
     #   streamlit
     #   wordcloud
