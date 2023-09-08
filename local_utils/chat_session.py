@@ -54,7 +54,11 @@ class ChatResponse(BaseModel):
         choice = self.choices[0]
         if not choice.message.function_call:
             return None
-        return json.loads(choice.message.function_call["arguments"])
+        args = choice.message.function_call["arguments"]
+        try:
+            return json.loads(args)
+        except json.decoder.JSONDecodeError:
+            return json.loads(args.replace("\\n", "\n").replace("\n", ""))
 
     @property
     def function_call_name(self) -> Optional[str]:

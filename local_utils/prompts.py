@@ -108,14 +108,15 @@ class WriteMetaArticle(BaseModel):
     rationale: str = Field(..., description="Explain why you are choosing this action")
 
 
-class DeleteMetaArticle(BaseModel):
-    """Delete a no longer needed meta article."""
+# class DeleteMetaArticle(BaseModel):
+#     """Delete a no longer needed meta article."""
+#
+#     article: str
+#     rationale: str = Field(..., description="Explain why you are choosing this action")
 
-    article: str
-    rationale: str = Field(..., description="Explain why you are choosing this action")
 
-
-REFLECT_FNS = [ReflectHelp, ListMetaArticles, ReadMetaArticle, WriteMetaArticle, DeleteMetaArticle, QueryForInfo]
+REFLECT_FNS = [ReflectHelp, ListMetaArticles, ReadMetaArticle, WriteMetaArticle, QueryForInfo]
+# REFLECT_FNS = [ReflectHelp, ListMetaArticles, ReadMetaArticle, WriteMetaArticle, DeleteMetaArticle, QueryForInfo]
 
 
 class ReflectActions(str, Enum):
@@ -125,4 +126,59 @@ class ReflectActions(str, Enum):
     ListMetaArticles = "ListMetaArticles"
     ReadMetaArticle = "ReadMetaArticle"
     WriteMetaArticle = "WriteMetaArticle"
-    DeleteMetaArticle = "DeleteMetaArticle"
+    # DeleteMetaArticle = "DeleteMetaArticle"
+
+
+LEARN_PROMPT = """
+For this `chain of thought` you have chosen to LEARN. This is where you can access the information you've already
+researched, gather new information, and update the knowledgebase.
+
+You decided on this action for a reason. Your rationale was:
+
+```
+{rationale}
+```
+
+A general approach to the LEARN `chain of thought` is to review your existing articles and then decide
+to refine or expand an existing article, or pick a new topic to begin researching. At that point
+utilize the QueryForInfo action to gain new data. Repeat this until you are ready to call WriteArticle.
+
+Every `chain of thought` ends when you chose to write to any article, which represents the knowledgebase.
+
+Your task now is to choose the next function you would like to use. This chain will end when you write to an article.
+""".strip()
+
+LEARN_REINFORCE = """Utilize the function calls rather than returning content to the end-user."""
+
+
+class ListArticles(BaseModel):
+    """List available articles."""
+
+    rationale: str = Field(..., description="Explain why you are choosing this action")
+
+
+class ReadArticle(BaseModel):
+    """Return the previously written contents of the specified article."""
+
+    article: str
+    rationale: str = Field(..., description="Explain why you are choosing this action")
+
+
+class WriteArticle(BaseModel):
+    """Write the markdown contents to the specified article, overwriting any existing article."""
+
+    article: str
+    contents: str
+    rationale: str = Field(..., description="Explain why you are choosing this action")
+
+
+LEARN_FNS = [ListArticles, ReadArticle, WriteArticle, QueryForInfo]
+
+
+class LearnActions(str, Enum):
+    Thinking = "Thinking"
+    QueryForInfo = "QueryForInfo"
+    ListArticles = "ListArticles"
+    ReadArticle = "ReadArticle"
+    WriteArticle = "WriteArticle"
+    # DeleteMetaArticle = "DeleteMetaArticle"

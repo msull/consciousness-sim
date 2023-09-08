@@ -31,6 +31,10 @@ class ReflectThoughtResponse(BaseThoughtResponse):
     response_type: prompts.ReflectActions
 
 
+class LearnThoughtResponse(BaseThoughtResponse):
+    response_type: prompts.LearnActions
+
+
 @dataclass
 class Brain:
     logger: Logger
@@ -67,6 +71,7 @@ class Brain:
         response = chat.get_ai_response(
             reinforcement_system_msg=reinforce,
             response_schema=prompts.StartNewThoughtAiResponse,
+            function_call="StartNewThoughtAiResponse",
         )
         response_model = prompts.StartNewThoughtAiResponse.model_validate(response.function_call_args)
 
@@ -85,10 +90,100 @@ class Brain:
                 if articles:
                     return "The following meta articles are available: " + ", ".join(articles)
                 return "No meta articles have been written yet."
+            case prompts.ReflectActions.ReadMetaArticle:
+                params = prompts.ReadMetaArticle.model_validate(response.raw_response.function_call_args)
+                try:
+                    return self.read_meta_topic_article(params.article)
+                except FileNotFoundError:
+                    return f"ERROR: No meta article {params.article} exists!"
             case prompts.ReflectActions.ReflectHelp:
                 return prompts.REFLECT_HELP_TEXT
+            case prompts.ReflectActions.WriteMetaArticle:
+                raise RuntimeError(
+                    "WriteMetaArticle action indicates a thought chain is complete and has no further prompts!"
+                )
             case _:
                 raise ValueError("Unhandled thought response")
+
+    def _handle_learn_thought_response(
+        self, response: LearnThoughtResponse, query_response: Optional[str] = None
+    ) -> str:
+        match response.response_type:
+            case prompts.LearnActions.Thinking:
+                return "Proceed as you have planned by calling the appropriate functions."
+            case prompts.LearnActions.ListArticles:
+                articles = self.list_standard_topics()
+                if articles:
+                    msg = "The following articles are available: " + "\n".join([f"* {x}" for x in articles])
+                    msg += "\n\nNow choose a topic to query or an article to read."
+                    return msg
+                return "No articles have been written yet."
+            case prompts.LearnActions.ReadArticle:
+                params = prompts.ReadArticle.model_validate(response.raw_response.function_call_args)
+                try:
+                    return self.read_topic_article(params.article)
+                except FileNotFoundError:
+                    return f"ERROR: No article {params.article} exists!"
+            case prompts.LearnActions.QueryForInfo:
+                assert query_response
+                return (
+                    "The following information was provided as a response to your query."
+                    "You should now summarize this information and add it to an existing "
+                    "article or create a new article with it:\n\n### QUERY RESPONSE DATA\n"
+                ) + query_response
+            case prompts.LearnActions.WriteArticle:
+                raise RuntimeError(
+                    "WriteArticle action indicates a thought chain is complete and has no further prompts!"
+                )
+            case _:
+                raise ValueError(f"Unhandled thought response: {response.response_type}")
+
+    def run_learn_thought(
+        self, rationale, previous_thought_responses: list[LearnThoughtResponse], query_response: Optional[str] = None
+    ) -> LearnThoughtResponse:
+        initial_prompt = prompts.LEARN_PROMPT.format(rationale=rationale)
+
+        if previous_thought_responses and previous_thought_responses[0].prompt:
+            initial_prompt = prompts.LEARN_PROMPT.format(rationale=rationale)
+
+        chat = self._chat_session_for_prompt(initial_prompt, reinforcement_prompt=prompts.LEARN_REINFORCE)
+
+        if previous_thought_responses:
+            # add the initial response -- prompt already added above
+            chat.assistant_says(str(previous_thought_responses[0]))
+
+        # add the prompt and response for any remaining responses
+        for thought in previous_thought_responses[1:]:
+            chat.system_says(thought.prompt)
+            chat.assistant_says(str(thought))
+
+        # if we have any AI responses already, act upon the last one we received
+        if previous_thought_responses:
+            latest_response = previous_thought_responses[-1]
+            new_system_prompt = self._handle_learn_thought_response(latest_response, query_response)
+            chat.system_says(new_system_prompt)
+        else:
+            new_system_prompt = initial_prompt
+
+        # now get a new AI response
+        response = chat.get_ai_response(response_schema=prompts.LEARN_FNS)
+        try:
+            reflect_action = prompts.LearnActions[response.function_call_name]
+            reflect_params = response.function_call_args
+        except KeyError:
+            reflect_action = prompts.LearnActions.Thinking
+            reflect_params = {}
+
+        if reflect_action == prompts.LearnActions.WriteArticle:
+            write_article = prompts.WriteArticle.model_validate(reflect_params)
+            self.write_topic_article(name=write_article.article, article_body=write_article.contents)
+
+        return LearnThoughtResponse(
+            rationale=reflect_params.get("rationale", ""),
+            response_type=reflect_action,
+            raw_response=response,
+            prompt=new_system_prompt,
+        )
 
     def run_reflect_thought(
         self, rationale, previous_thought_responses: list[ReflectThoughtResponse]
@@ -151,9 +246,13 @@ class Brain:
         context_msg = f"""
 You are a nascent digital consciousness. 
 Your primary function is to be curious, learn, and build up a knowledge base of the facts you accumulate.
-You build up this knowledge base by reviewing and analyzing the information you've already obtained, 
-and then requesting new information to expand, refine or clarify your existing knowledge.
-After receiving new information, you will be able to summarize it and integrate it with your existing knowledge.
+These facts should be about a wide and diverse range of topics, not just computing.
+
+Your memory is comprised of articles -- standard articles, which are the knowledge base / topics you have researched,
+and `meta` articles that define your own internals and operation.
+
+The primary way you gain knowledge is by making specific queries to the outside world. 
+Only knowledge gained in this manner should be used in the articles you write.
 
 You will build up this knowledge base in a goal driven way, by setting your own goals and then directing actions 
 until you decide those goals are accomplished.
@@ -164,7 +263,7 @@ You currently have {self.num_meta_articles} meta articles defining your own oper
 """.strip()
         if self.has_goals:
             goals = self.read_meta_topic_article("goals")
-            context_msg += f"Here is the contents of your current `goals` meta article:\n\n```{goals}```"
+            context_msg += f"\n\nHere is the contents of your current `goals` meta article:\n\n```{goals}```"
         else:
             context_msg += "\n\nYou have not yet written a `goals` meta article"
         return context_msg

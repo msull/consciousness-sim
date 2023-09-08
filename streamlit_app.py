@@ -12,7 +12,7 @@ from pydantic.v1 import BaseSettings
 from wordcloud import STOPWORDS, WordCloud
 
 from local_utils import prompts
-from local_utils.brain import Brain, ReflectThoughtResponse, StartNewThoughtResponse
+from local_utils.brain import Brain, LearnThoughtResponse, ReflectThoughtResponse, StartNewThoughtResponse
 from local_utils.prompts import ThoughtTypes
 from local_utils.session_data import BaseSessionData
 from local_utils.settings import StreamlitAppSettings
@@ -24,14 +24,19 @@ class ThoughtData(BaseSessionData):
     thought_model: str = ""
     trigger_new_thought: bool = False
     new_thought: Optional[StartNewThoughtResponse] = None
-    this_thought_responses: list[ReflectThoughtResponse] = Field(default_factory=list)
+    reflect_thought_responses: list[ReflectThoughtResponse] = Field(default_factory=list)
+    learn_thought_responses: list[LearnThoughtResponse] = Field(default_factory=list)
     current_thought_index: int = 0
     thought_complete: bool = False
     thought_had_error: bool = False
     thought_status_msgs: list[str] = Field(default_factory=list)
 
     def add_reflect_thought_response(self, response: ReflectThoughtResponse):
-        self.this_thought_responses.append(response)
+        self.reflect_thought_responses.append(response)
+        self.save_to_session_state()
+
+    def add_learn_thought_response(self, response: LearnThoughtResponse):
+        self.learn_thought_responses.append(response)
         self.save_to_session_state()
 
     def add_thought_status_msg(self, msg: str):
@@ -91,6 +96,8 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
                 model = st.selectbox("Thought model", ("gpt-3.5-turbo", "gpt-4"))
                 if st.form_submit_button("Trigger new thought"):
                     trigger_chain_of_thought(session_data, model)
+                    session_data.save_to_session_state()
+                    logger.debug("Rerunning after thought trigger")
                     st.experimental_rerun()
 
             st.write("OR")
@@ -115,10 +122,11 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
     brain = Brain(logger=logger, settings=settings, model=session_data.thought_model)
     with sidebar:
         status = st.status("This thought chain", state=session_data.get_thought_status(), expanded=True)
+        query_placeholder = st.empty()
         continue_button = st.empty()
+        sidebar_error_placeholder = st.empty()
         st.divider()
-        st.button("Clear thought", on_click=_clear_thought, args=[session_data], type="primary")
-        st.caption("This does not stop the thought from processing")
+        st.button("Close thought", on_click=_clear_thought, args=[session_data], type="primary")
     status_msgs = status.container().empty()
 
     def _display_status_msgs():
@@ -152,36 +160,104 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
             with st.expander(label):
                 st.write(str(session_data.new_thought))
 
-        if continue_button.button("Continue thought chain"):
-            with st.spinner("Continuing thought chain..."):
-                thought_response = brain.run_reflect_thought(
-                    session_data.new_thought.rationale, previous_thought_responses=session_data.this_thought_responses
-                )
-            session_data.add_reflect_thought_response(thought_response)
-            _add_status_msg(f"Action: {thought_response.response_type}")
-            session_data.persist_session_state(settings.session_data)
-
         # display responses in the thought chain
-        if session_data.this_thought_responses:
+        response_needed = False
+        query_response = None
+
+        if session_data.reflect_thought_responses or session_data.learn_thought_responses:
             if session_data.new_thought.response_type == ThoughtTypes.REFLECT:
                 thought_prompt_label = "REFLECT thought prompt"
                 thought_prompt = prompts.REFLECT_PROMPT.format(rationale=session_data.new_thought.rationale)
-                thought_responses = session_data.this_thought_responses
+                thought_responses = session_data.reflect_thought_responses
 
                 with st.chat_message(name="user"):
                     with st.expander(thought_prompt_label):
                         st.write(thought_prompt)
 
                 for idx, thought_response in enumerate(thought_responses):
+                    if idx > 0:
+                        with st.chat_message(name="user"):
+                            with st.expander("Response to AI thought"):
+                                st.write(thought_response.prompt)
                     response_label = thought_response.response_type
                     with st.chat_message(name="ai", avatar="assistant"):
                         with st.expander(response_label):
                             st.write(str(thought_response))
-                    # last one?
-                    if idx + 1 == len(thought_responses):
-                        continue
+                        # last one?
+                        if idx + 1 == len(thought_responses):
+                            if thought_response.response_type == prompts.ReflectActions.WriteMetaArticle:
+                                article = thought_response.raw_response.function_call_args["article"]
+                                with st.expander(f"Article `{article}` contents"):
+                                    st.write(thought_response.raw_response.function_call_args["contents"])
+            elif session_data.new_thought.response_type == ThoughtTypes.LEARN:
+                thought_prompt_label = "LEARN thought prompt"
+                thought_prompt = prompts.LEARN_PROMPT.format(rationale=session_data.new_thought.rationale)
+                thought_responses = session_data.learn_thought_responses
+
+                with st.chat_message(name="user"):
+                    with st.expander(thought_prompt_label):
+                        st.write(thought_prompt)
+
+                for idx, thought_response in enumerate(thought_responses):
+                    if idx > 0:
+                        with st.chat_message(name="user"):
+                            with st.expander("Response to AI thought"):
+                                st.write(thought_response.prompt)
+                    response_label = thought_response.response_type
+                    with st.chat_message(name="ai", avatar="assistant"):
+                        with st.expander(response_label):
+                            st.write(str(thought_response))
+                        # last one?
+                        if idx + 1 == len(thought_responses):
+                            if thought_response.response_type == prompts.LearnActions.WriteArticle:
+                                article = thought_response.raw_response.function_call_args["article"]
+                                with st.expander(f"Article `{article}` contents"):
+                                    st.write(thought_response.raw_response.function_call_args["contents"])
+                            elif thought_response.response_type == prompts.LearnActions.QueryForInfo:
+                                query = thought_response.raw_response.function_call_args["q"]
+                                st.write(query)
+
+                                with query_placeholder.container():
+                                    response_needed = True
+                                    st.write(query)
+                                    query_response = st.text_area("Respond")
+
             else:
                 raise ValueError(f"Unsupported thought_type: {session_data.new_thought.response_type}")
+
+    if not session_data.thought_complete and continue_button.button("Continue thought chain"):
+        if response_needed and not query_response:
+            sidebar_error_placeholder.error("Must respond to query")
+        else:
+            if session_data.new_thought.response_type == ThoughtTypes.REFLECT:
+                with st.spinner("Continuing reflect thought chain..."):
+                    thought_response = brain.run_reflect_thought(
+                        session_data.new_thought.rationale,
+                        previous_thought_responses=session_data.reflect_thought_responses,
+                    )
+                    session_data.add_reflect_thought_response(thought_response)
+                    _add_status_msg(f"Action: {thought_response.response_type}")
+
+                    if thought_response.response_type == prompts.ReflectActions.WriteMetaArticle:
+                        session_data.thought_complete = True
+                        _add_status_msg("Thought completed")
+
+            elif session_data.new_thought.response_type == ThoughtTypes.LEARN:
+                with st.spinner("Continuing learn thought chain..."):
+                    thought_response = brain.run_learn_thought(
+                        session_data.new_thought.rationale,
+                        previous_thought_responses=session_data.learn_thought_responses,
+                        query_response=query_response,
+                    )
+                    session_data.add_learn_thought_response(thought_response)
+                    _add_status_msg(f"Action: {thought_response.response_type}")
+
+                    if thought_response.response_type == prompts.LearnActions.WriteArticle:
+                        session_data.thought_complete = True
+                        _add_status_msg("Thought completed")
+
+            session_data.persist_session_state(settings.session_data)
+            st.experimental_rerun()
 
     brain_context.write(brain.standard_chat_context())
     status.update(state="complete")
@@ -232,7 +308,17 @@ def render_recent_thoughts(settings: StreamlitAppSettings, n=5):
 
 
 def render_knowledgebase(settings: StreamlitAppSettings):
-    pass
+    brain = Brain(logger=logger, settings=settings)
+    view_article: str = st.selectbox(
+        "View article", [""] + [f"meta: {x}" for x in brain.list_meta_topics()] + brain.list_standard_topics()
+    )
+    if view_article:
+        if view_article.startswith("meta: "):
+            st.write(brain.read_meta_topic_article(view_article.removeprefix("meta: ")))
+        else:
+            st.write(brain.read_topic_article(view_article))
+    else:
+        st.subheader("Select an article from the list")
 
 
 if __name__ == "__main__":
