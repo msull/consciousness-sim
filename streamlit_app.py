@@ -17,7 +17,7 @@ from local_utils.prompts import ThoughtTypes
 from local_utils.session_data import BaseSessionData
 from local_utils.settings import StreamlitAppSettings
 
-st.set_page_config("Conciousness Simulator", layout="wide")
+st.set_page_config("Consciousness Simulator", layout="wide")
 
 
 class ThoughtData(BaseSessionData):
