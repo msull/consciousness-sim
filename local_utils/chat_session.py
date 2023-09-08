@@ -46,9 +46,7 @@ class ChatResponse(BaseModel):
     def response_message(self) -> _T | str:
         assert self.choices
         choice = self.choices[0]
-        return choice.message.content or json.loads(
-            choice.message.function_call["arguments"]
-        )
+        return choice.message.content or json.loads(choice.message.function_call["arguments"])
 
     @property
     def was_response_complete(self) -> bool:
@@ -83,9 +81,7 @@ class ChatSession:
         function_call: Optional[str] = None,
     ) -> ChatResponse:
         initial_system_msg = initial_system_msg or self.initial_system_message
-        reinforcement_system_msg = (
-            reinforcement_system_msg or self.reinforcement_system_msg
-        )
+        reinforcement_system_msg = reinforcement_system_msg or self.reinforcement_system_msg
 
         chat_history = self.history[:]
         # add the initial system message describing the AI's role
@@ -111,10 +107,7 @@ class ChatSession:
             if function_call:
                 extra_kwargs["function_call"] = {"name": function_call}
         response = openai.ChatCompletion.create(
-            model=self.model,
-            messages=chat_history,
-            api_key=self.openai_api_key,
-            **extra_kwargs
+            model=self.model, messages=chat_history, api_key=self.openai_api_key, **extra_kwargs
         )
         logger.debug(response)
         response_kwargs = json.loads(json.dumps(response))

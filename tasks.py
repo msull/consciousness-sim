@@ -31,3 +31,11 @@ def run_streamlit(c):
             "python -m streamlit run streamlit_app.py",
             pty=True,
         )
+
+
+@task
+def lint(c: Context):
+    with Paths.cd(c, Paths.repo_root):
+        c.run("isort .")
+        c.run("ruff .")
+        c.run("black .")

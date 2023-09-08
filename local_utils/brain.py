@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import MappingProxyType
 from typing import Optional
 
 from pydantic import BaseModel
@@ -46,35 +45,15 @@ class Brain:
             model=self.model,
         )
 
-    # def get_new_thought_type(self) -> StartNewThoughtResponse:
-    #     self.refresh()
-    #     chat = self._chat_session_for_prompt(prompts.START_NEW_THOUGHT_PROMPT)
-    #     reinforce = None
-    #     if not self.has_goals:
-    #         reinforce = "HINT: since you do not currently have  goal defined, a good option would be to REFLECT and then write a goals meta article."
-    #     response = chat.get_ai_response(reinforcement_system_msg=reinforce)
-    #
-    #     lines = response.response_message.strip().splitlines()
-    #
-    #     new_thought_type = ThoughtTypes[lines[-1].strip()]
-    #
-    #     return StartNewThoughtResponse(
-    #         thought_type=new_thought_type, rationale=response.response_message, raw_response=response
-    #     )
-
     def get_new_thought_type(self) -> StartNewThoughtResponse:
         self.refresh()
         chat = self._chat_session_for_prompt(prompts.START_NEW_THOUGHT_PROMPT)
         reinforce = None
-        # if not self.has_goals:
-        #     reinforce = "HINT: since you do not currently have  goal defined, a good option would be to REFLECT and then write a goals meta article."
         response = chat.get_ai_response(
             reinforcement_system_msg=reinforce,
             response_schema=prompts.StartNewThoughtAiResponse,
         )
-        response_model = prompts.StartNewThoughtAiResponse.model_validate(
-            response.response_message
-        )
+        response_model = prompts.StartNewThoughtAiResponse.model_validate(response.response_message)
 
         return StartNewThoughtResponse(
             thought_type=response_model.thought_type,
@@ -116,7 +95,7 @@ You have not take any actions.
             goals = self.read_meta_topic_article("goals")
             context_msg += f"Here is the contents of your current `goals` meta article:\n\n```{goals}```"
         else:
-            context_msg += f"\n\nYou have not yet written a `goals` meta article"
+            context_msg += "\n\nYou have not yet written a `goals` meta article"
         return context_msg
 
     @property
@@ -127,11 +106,7 @@ You have not take any actions.
         return path
 
     def list_meta_topics(self) -> list[str]:
-        return [
-            x.name.removesuffix(".md")
-            for x in self.meta_topics_path.iterdir()
-            if x.name.endswith(".md")
-        ]
+        return [x.name.removesuffix(".md") for x in self.meta_topics_path.iterdir() if x.name.endswith(".md")]
 
     def write_meta_topic_article(self, name: str, article_body: str):
         path = self.meta_topics_path / (name.lower() + ".md")
@@ -149,11 +124,7 @@ You have not take any actions.
         return path
 
     def list_standard_topics(self) -> list[str]:
-        return [
-            x.name.removesuffix(".md")
-            for x in self.standard_topics_path.iterdir()
-            if x.name.endswith(".md")
-        ]
+        return [x.name.removesuffix(".md") for x in self.standard_topics_path.iterdir() if x.name.endswith(".md")]
 
     def write_topic_article(self, name: str, article_body: str):
         path = self.standard_topics_path / (name.lower() + ".md")

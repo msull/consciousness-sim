@@ -8,7 +8,7 @@ class ThoughtTypes(str, Enum):
     LEARN = "LEARN"
 
 
-START_NEW_THOUGHT_PROMPT = f"""
+START_NEW_THOUGHT_PROMPT = """
 You are now at the beginning of a new chain of thought. 
 Your current task now is to decide what type of thought chain this will be to advance towards completion of your goals.
 After selecting the thought type, you will be given more instructions on how to proceed.
@@ -36,8 +36,8 @@ You have chosen to REFLECT. This is where you can access your meta articles, whi
 For example to track your goals you should write to the meta article "goals" -- the contents you write should be 
 the entire goals file in a markdown format, so you may need to read the goals file first.
 
-Writing to certain specific meta articles can adjust system behavior, such as the prompts you are offered and your choices.
-Use the "help" function to learn more about this.
+Writing to certain specific meta articles can adjust system behavior, such as the prompts 
+you are offered and your choices. Use the "help" function to learn more about this.
 
 You decided on this action for a reason. Now plan out what actions need to be taken, 
 and then take the first step towards achieving the goal.
@@ -53,7 +53,10 @@ class QueryForInfo(BaseModel):
 
     q: str = Field(
         ...,
-        description="Query string. Phrase this as a question, the more specific the better. You will receive a response with data from multiple cited sources.",
+        description=(
+            "Query string. Phrase this as a question, the more specific the better. "
+            "You will receive a response with data from multiple cited sources."
+        ),
     )
 
 

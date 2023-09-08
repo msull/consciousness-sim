@@ -50,9 +50,7 @@ def _dump(obj: BaseModel | BaseSettings) -> str:
 def main():
     settings = StreamlitAppSettings.load()
     session_data = ThoughtData.init_session(settings.session_data)
-    main_tab, knowledge_tab, thoughts_tab, debug_tab = st.tabs(
-        ["Main", "Knowledgebase", "Recent Thoughts", "Debug"]
-    )
+    main_tab, knowledge_tab, thoughts_tab, debug_tab = st.tabs(["Main", "Knowledgebase", "Recent Thoughts", "Debug"])
 
     try:
         with knowledge_tab:
@@ -68,15 +66,11 @@ def main():
             with st.expander("Settings"):
                 st.code(_dump(settings))
             with st.expander("Session", expanded=True):
-                st.button(
-                    "Clear session data", on_click=_clear_thought, args=[session_data]
-                )
+                st.button("Clear session data", on_click=_clear_thought, args=[session_data])
                 st.code(_dump(session_data))
 
 
-def render_main_functionality(
-    settings: StreamlitAppSettings, session_data: ThoughtData
-):
+def render_main_functionality(settings: StreamlitAppSettings, session_data: ThoughtData):
     chat_col, sidebar = st.columns((2, 2))
 
     if not session_data.trigger_new_thought:
@@ -95,10 +89,7 @@ def render_main_functionality(
             st.write("OR")
             if not thought_id:
                 sessions = sorted(
-                    [
-                        x.name.removesuffix(".json")
-                        for x in settings.session_data.iterdir()
-                    ],
+                    [x.name.removesuffix(".json") for x in settings.session_data.iterdir()],
                     reverse=True,
                 )
 
@@ -114,9 +105,7 @@ def render_main_functionality(
     # brain = Brain(settings=settings, model="gpt-4")
     brain = Brain(settings=settings, model=session_data.thought_model)
     with sidebar:
-        status = st.status(
-            "This thought chain", state=session_data.get_thought_status(), expanded=True
-        )
+        status = st.status("This thought chain", state=session_data.get_thought_status(), expanded=True)
 
         st.button("Clear thought", on_click=_clear_thought, args=[session_data])
         st.caption("This does not stop the thought from processing")
@@ -142,9 +131,7 @@ def render_main_functionality(
             if not session_data.new_thought:
                 with st.spinner("Selecting thought type..."):
                     session_data.new_thought = brain.get_new_thought_type()
-                    _add_status_msg(
-                        f"Thought Type: {session_data.new_thought.thought_type}"
-                    )
+                    _add_status_msg(f"Thought Type: {session_data.new_thought.thought_type}")
 
             st.write(str(session_data.new_thought))
             session_data.persist_session_state(settings.session_data)
@@ -153,9 +140,7 @@ def render_main_functionality(
     _display_status_msgs()
 
 
-def grey_color_func(
-    word, font_size, position, orientation, random_state=None, **kwargs
-):
+def grey_color_func(word, font_size, position, orientation, random_state=None, **kwargs):
     return "hsl(0, 0%%, %d%%)" % random.randint(60, 100)
 
 
@@ -165,15 +150,13 @@ def _clear_thought(session: ThoughtData):
 
 
 def render_recent_thoughts(settings: StreamlitAppSettings, n=5):
-    brain = Brain(settings=settings)
+    Brain(settings=settings)
     here = Path(__file__).parent
 
     brain_mask = np.array(Image.open(str(here / "brain-outline.png")))
     settings.session_data.mkdir(exist_ok=True, parents=True)
     text = []
-    for session_file in sorted(
-        [x.name for x in settings.session_data.iterdir()], reverse=True
-    )[:n]:
+    for session_file in sorted([x.name for x in settings.session_data.iterdir()], reverse=True)[:n]:
         session_text = (settings.session_data / session_file).read_text()
         obj = ThoughtData.model_validate_json(session_text)
         text.append(obj.new_thought.rationale)
