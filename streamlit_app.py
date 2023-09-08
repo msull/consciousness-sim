@@ -18,6 +18,7 @@ st.set_page_config("Conciousness Simulator", layout="wide")
 
 
 class ThoughtData(BaseSessionData):
+    thought_model: str = ""
     trigger_new_thought: bool = False
     new_thought: Optional[StartNewThoughtResponse] = None
     thought_complete: bool = False
@@ -36,9 +37,9 @@ class ThoughtData(BaseSessionData):
         return "running"
 
 
-def trigger_chain_of_thought(session: ThoughtData):
+def trigger_chain_of_thought(session: ThoughtData, model: str):
     session.trigger_new_thought = True
-    st.toast("New Thought Chain Begun", icon="🔥")
+    session.thought_model = model
 
 
 def _dump(obj: BaseModel | BaseSettings) -> str:
@@ -67,7 +68,9 @@ def main():
             with st.expander("Settings"):
                 st.code(_dump(settings))
             with st.expander("Session", expanded=True):
-                st.button("Clear session data", on_click=session_data.clear_session)
+                st.button(
+                    "Clear session data", on_click=_clear_thought, args=[session_data]
+                )
                 st.code(_dump(session_data))
 
 
@@ -77,17 +80,46 @@ def render_main_functionality(
     chat_col, sidebar = st.columns((2, 2))
 
     if not session_data.trigger_new_thought:
-        sidebar.button(
-            "Trigger thought",
-            on_click=trigger_chain_of_thought,
-            args=[session_data],
-        )
+        with chat_col:
+            with st.chat_message(name="user"):
+                st.write("Awaiting thought...")
+        with sidebar:
+            with st.form("New thought"):
+                model = st.selectbox("Thought model", ("gpt-3.5-turbo", "gpt-4"))
+                if st.form_submit_button("Trigger new thought"):
+                    trigger_chain_of_thought(session_data, model)
+                    st.experimental_rerun()
+
+            st.write("OR")
+            thought_id = st.text_input("Load specific thought")
+            st.write("OR")
+            if not thought_id:
+                sessions = sorted(
+                    [
+                        x.name.removesuffix(".json")
+                        for x in settings.session_data.iterdir()
+                    ],
+                    reverse=True,
+                )
+
+                thought_id = st.selectbox("Select specific thought", [""] + sessions)
+
+            if thought_id:
+                session_data.clear_session()
+                st.experimental_set_query_params(s=thought_id)
+                st.experimental_rerun()
+
         st.stop()
 
-    brain = Brain(settings=settings, model="gpt-4")
-    status = sidebar.status(
-        "This thought chain", state=session_data.get_thought_status(), expanded=True
-    )
+    # brain = Brain(settings=settings, model="gpt-4")
+    brain = Brain(settings=settings, model=session_data.thought_model)
+    with sidebar:
+        status = st.status(
+            "This thought chain", state=session_data.get_thought_status(), expanded=True
+        )
+
+        st.button("Clear thought", on_click=_clear_thought, args=[session_data])
+        st.caption("This does not stop the thought from processing")
     status_msgs = status.container().empty()
 
     def _display_status_msgs():
@@ -125,6 +157,11 @@ def grey_color_func(
     word, font_size, position, orientation, random_state=None, **kwargs
 ):
     return "hsl(0, 0%%, %d%%)" % random.randint(60, 100)
+
+
+def _clear_thought(session: ThoughtData):
+    session.clear_session()
+    st.experimental_set_query_params(s="")
 
 
 def render_recent_thoughts(settings: StreamlitAppSettings, n=5):

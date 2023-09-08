@@ -64,7 +64,7 @@ class Brain:
 
     def get_new_thought_type(self) -> StartNewThoughtResponse:
         self.refresh()
-        chat = self._chat_session_for_prompt(prompts.PROMPT_NEW_THOUGHT_BEGINS)
+        chat = self._chat_session_for_prompt(prompts.START_NEW_THOUGHT_PROMPT)
         reinforce = None
         # if not self.has_goals:
         #     reinforce = "HINT: since you do not currently have  goal defined, a good option would be to REFLECT and then write a goals meta article."
@@ -81,6 +81,9 @@ class Brain:
             rationale=response_model.rationale,
             raw_response=response,
         )
+
+    def start_reflect_thought(self):
+        pass
 
     def refresh(self):
         self.article_topics = self.list_standard_topics()

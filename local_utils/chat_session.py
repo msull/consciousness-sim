@@ -79,7 +79,8 @@ class ChatSession:
         self,
         initial_system_msg: Optional[str] = None,
         reinforcement_system_msg: Optional[str] = None,
-        response_schema: Optional[Type[_T]] = None,
+        response_schema: Optional[Type[_T] | list[Type[_T]]] = None,
+        function_call: Optional[str] = None,
     ) -> ChatResponse:
         initial_system_msg = initial_system_msg or self.initial_system_message
         reinforcement_system_msg = (
@@ -97,16 +98,18 @@ class ChatSession:
         logger.debug(chat_history)
         extra_kwargs = {}
         if response_schema:
+            if not isinstance(response_schema, list):
+                response_schema = [response_schema]
             extra_kwargs["functions"] = [
                 {
-                    "name": "respond_as_expected",
-                    "description": "return a response in the expected format",
-                    "parameters": response_schema.model_json_schema(
-                        mode="serialization"
-                    ),
+                    "name": x.__name__,
+                    "description": x.__doc__ or "",
+                    "parameters": x.model_json_schema(mode="serialization"),
                 }
+                for x in response_schema
             ]
-            extra_kwargs["function_call"] = {"name": "respond_as_expected"}
+            if function_call:
+                extra_kwargs["function_call"] = {"name": function_call}
         response = openai.ChatCompletion.create(
             model=self.model,
             messages=chat_history,
