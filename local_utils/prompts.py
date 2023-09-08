@@ -50,7 +50,22 @@ Now plan out what actions need to be taken based on your available tools, and th
 Every `chain of thought` ends when you chose to write to any article, which represents your memory.
 
 Your task now is to choose the next function you would like to use. This chain will end when you write to an article.
-"""
+""".strip()
+
+
+REFLECT_HELP_TEXT = """
+A REFLECT `chain of thought` is used to interact with your internals, which are tracked as meta articles.
+You can use these anyway you see fit, for example by defining a process meta article that you later
+reference whenever you want to perform a test. For example you could define a meta article called "summarizing"
+and write their the procedure you would like to use when summarizing text into a new article.
+
+Writing certain specific meta articles will have additional system impacts:
+
+* `goals` - anything written into this article is displayed as part of the initial system context
+* `help` - anything written here is added to this standard help message when you utilize the ReflectHelp action
+
+Now continue with the next action according to your plan for this `chain of thought`.
+""".strip()  # todo support adding the extra "help" article content
 
 
 class ReflectHelp(BaseModel):

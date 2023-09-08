@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from logging import Logger
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +14,7 @@ class BaseThoughtResponse(BaseModel):
     rationale: str
     raw_response: ChatResponse
     response_type: str
+    prompt: str = ""
 
     def __str__(self):
         if msg := self.raw_response.response_message:
@@ -31,6 +33,7 @@ class ReflectThoughtResponse(BaseThoughtResponse):
 
 @dataclass
 class Brain:
+    logger: Logger
     settings: StreamlitAppSettings
     model: str = "gpt-3.5-turbo"
 
@@ -73,15 +76,49 @@ class Brain:
             raw_response=response,
         )
 
+    def _handle_reflect_thought_response(self, response: ReflectThoughtResponse) -> str:
+        match response.response_type:
+            case prompts.ReflectActions.Thinking:
+                return "Proceed as you have planned by calling the appropriate functions."
+            case prompts.ReflectActions.ListMetaArticles:
+                articles = self.list_meta_topics()
+                if articles:
+                    return "The following meta articles are available: " + ", ".join(articles)
+                return "No meta articles have been written yet."
+            case prompts.ReflectActions.ReflectHelp:
+                return prompts.REFLECT_HELP_TEXT
+            case _:
+                raise ValueError("Unhandled thought response")
+
     def run_reflect_thought(
-        self, rationale, previous_thought_responses: list[ReflectThoughtResponse] = None
+        self, rationale, previous_thought_responses: list[ReflectThoughtResponse]
     ) -> ReflectThoughtResponse:
-        chat = self._chat_session_for_prompt(prompts.REFLECT_PROMPT.format(rationale=rationale))
-        reinforce = None
-        response = chat.get_ai_response(
-            reinforcement_system_msg=reinforce,
-            response_schema=prompts.REFLECT_FNS,
-        )
+        initial_prompt = prompts.REFLECT_PROMPT.format(rationale=rationale)
+
+        if previous_thought_responses and previous_thought_responses[0].prompt:
+            initial_prompt = prompts.REFLECT_PROMPT.format(rationale=rationale)
+
+        chat = self._chat_session_for_prompt(initial_prompt)
+
+        if previous_thought_responses:
+            # add the initial response -- prompt already added above
+            chat.assistant_says(str(previous_thought_responses[0]))
+
+        # add the prompt and response for any remaining responses
+        for thought in previous_thought_responses[1:]:
+            chat.system_says(thought.prompt)
+            chat.assistant_says(str(thought))
+
+        # if we have any AI responses already, act upon the last one we received
+        if previous_thought_responses:
+            latest_response = previous_thought_responses[-1]
+            new_system_prompt = self._handle_reflect_thought_response(latest_response)
+            chat.system_says(new_system_prompt)
+        else:
+            new_system_prompt = initial_prompt
+
+        # now get a new AI response
+        response = chat.get_ai_response(response_schema=prompts.REFLECT_FNS)
         try:
             reflect_action = prompts.ReflectActions[response.function_call_name]
             reflect_params = response.function_call_args
@@ -89,8 +126,15 @@ class Brain:
             reflect_action = prompts.ReflectActions.Thinking
             reflect_params = {}
 
+        if reflect_action == prompts.ReflectActions.WriteMetaArticle:
+            write_meta = prompts.WriteMetaArticle.model_validate(reflect_params)
+            self.write_meta_topic_article(name=write_meta.article, article_body=write_meta.contents)
+
         return ReflectThoughtResponse(
-            rationale=reflect_params.get("rationale", ""), response_type=reflect_action, raw_response=response
+            rationale=reflect_params.get("rationale", ""),
+            response_type=reflect_action,
+            raw_response=response,
+            prompt=new_system_prompt,
         )
 
     def refresh(self):
@@ -117,8 +161,6 @@ until you decide those goals are accomplished.
 You currently have {self.num_articles} articles in your knowledge base.
 
 You currently have {self.num_meta_articles} meta articles defining your own operation.
-
-You have not take any actions.
 """.strip()
         if self.has_goals:
             goals = self.read_meta_topic_article("goals")
@@ -135,7 +177,7 @@ You have not take any actions.
         return path
 
     def list_meta_topics(self) -> list[str]:
-        return [x.name.removesuffix(".md") for x in self.meta_topics_path.iterdir() if x.name.endswith(".md")]
+        return sorted([x.name.removesuffix(".md") for x in self.meta_topics_path.iterdir() if x.name.endswith(".md")])
 
     def write_meta_topic_article(self, name: str, article_body: str):
         path = self.meta_topics_path / (name.lower() + ".md")
@@ -153,7 +195,9 @@ You have not take any actions.
         return path
 
     def list_standard_topics(self) -> list[str]:
-        return [x.name.removesuffix(".md") for x in self.standard_topics_path.iterdir() if x.name.endswith(".md")]
+        return sorted(
+            [x.name.removesuffix(".md") for x in self.standard_topics_path.iterdir() if x.name.endswith(".md")]
+        )
 
     def write_topic_article(self, name: str, article_body: str):
         path = self.standard_topics_path / (name.lower() + ".md")

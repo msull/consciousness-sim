@@ -5,6 +5,7 @@ from typing import Literal, Optional
 
 import numpy as np
 import streamlit as st
+from logzero import logger
 from PIL import Image
 from pydantic import BaseModel, Field
 from pydantic.v1 import BaseSettings
@@ -111,7 +112,7 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
         st.stop()
 
     # brain = Brain(settings=settings, model="gpt-4")
-    brain = Brain(settings=settings, model=session_data.thought_model)
+    brain = Brain(logger=logger, settings=settings, model=session_data.thought_model)
     with sidebar:
         status = st.status("This thought chain", state=session_data.get_thought_status(), expanded=True)
         continue_button = st.empty()
@@ -197,7 +198,7 @@ def _clear_thought(session: ThoughtData):
 
 
 def render_recent_thoughts(settings: StreamlitAppSettings, n=5):
-    Brain(settings=settings)
+    Brain(logger=logger, settings=settings)
     here = Path(__file__).parent
 
     brain_mask = np.array(Image.open(str(here / "brain-outline.png")))
