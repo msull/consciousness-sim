@@ -10,7 +10,9 @@ from pydantic import BaseModel, Field
 from pydantic.v1 import BaseSettings
 from wordcloud import STOPWORDS, WordCloud
 
-from local_utils.brain import Brain, StartNewThoughtResponse
+from local_utils import prompts
+from local_utils.brain import Brain, ReflectThoughtResponse, StartNewThoughtResponse
+from local_utils.prompts import ThoughtTypes
 from local_utils.session_data import BaseSessionData
 from local_utils.settings import StreamlitAppSettings
 
@@ -21,9 +23,15 @@ class ThoughtData(BaseSessionData):
     thought_model: str = ""
     trigger_new_thought: bool = False
     new_thought: Optional[StartNewThoughtResponse] = None
+    this_thought_responses: list[ReflectThoughtResponse] = Field(default_factory=list)
+    current_thought_index: int = 0
     thought_complete: bool = False
     thought_had_error: bool = False
     thought_status_msgs: list[str] = Field(default_factory=list)
+
+    def add_reflect_thought_response(self, response: ReflectThoughtResponse):
+        self.this_thought_responses.append(response)
+        self.save_to_session_state()
 
     def add_thought_status_msg(self, msg: str):
         self.thought_status_msgs.append(msg)
@@ -75,7 +83,7 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
 
     if not session_data.trigger_new_thought:
         with chat_col:
-            with st.chat_message(name="user"):
+            with st.chat_message(name="ai", avatar="assistant"):
                 st.write("Awaiting thought...")
         with sidebar:
             with st.form("New thought"):
@@ -106,8 +114,9 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
     brain = Brain(settings=settings, model=session_data.thought_model)
     with sidebar:
         status = st.status("This thought chain", state=session_data.get_thought_status(), expanded=True)
-
-        st.button("Clear thought", on_click=_clear_thought, args=[session_data])
+        continue_button = st.empty()
+        st.divider()
+        st.button("Clear thought", on_click=_clear_thought, args=[session_data], type="primary")
         st.caption("This does not stop the thought from processing")
     status_msgs = status.container().empty()
 
@@ -120,22 +129,60 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
 
     if not session_data.thought_status_msgs:
         _add_status_msg(f"Thought initiated {session_data.session_id}")
+        _add_status_msg(f"Thought Model: {session_data.thought_model}")
 
     _display_status_msgs()
 
     with chat_col:
+        with st.chat_message(name="ai", avatar="assistant"):
+            with st.expander("Current Brain Context"):
+                brain_context = st.empty()
         with st.chat_message(name="user"):
             with st.expander("Prompt for new thought chain"):
-                st.write(brain.standard_chat_context())
+                st.write(prompts.START_NEW_THOUGHT_PROMPT)
         with st.chat_message(name="ai", avatar="assistant"):
             if not session_data.new_thought:
                 with st.spinner("Selecting thought type..."):
                     session_data.new_thought = brain.get_new_thought_type()
-                    _add_status_msg(f"Thought Type: {session_data.new_thought.thought_type}")
+                    _add_status_msg(f"Thought Type: {session_data.new_thought.response_type}")
+                    session_data.persist_session_state(settings.session_data)
 
-            st.write(str(session_data.new_thought))
+            label = f"Chosen thought type: {session_data.new_thought.response_type}"
+            with st.expander(label):
+                st.write(str(session_data.new_thought))
+
+        if continue_button.button("Continue thought chain"):
+            with st.spinner("Continuing thought chain..."):
+                thought_response = brain.run_reflect_thought(
+                    session_data.new_thought.rationale, previous_thought_responses=session_data.this_thought_responses
+                )
+            session_data.add_reflect_thought_response(thought_response)
+            _add_status_msg(f"Action: {thought_response.response_type}")
             session_data.persist_session_state(settings.session_data)
 
+        # display responses in the thought chain
+        if session_data.this_thought_responses:
+            if session_data.new_thought.response_type == ThoughtTypes.REFLECT:
+                thought_prompt_label = "REFLECT thought prompt"
+                thought_prompt = prompts.REFLECT_PROMPT.format(rationale=session_data.new_thought.rationale)
+                thought_responses = session_data.this_thought_responses
+
+                with st.chat_message(name="user"):
+                    with st.expander(thought_prompt_label):
+                        st.write(thought_prompt)
+
+                for idx, thought_response in enumerate(thought_responses):
+                    response_label = thought_response.response_type
+                    with st.chat_message(name="ai", avatar="assistant"):
+                        with st.expander(response_label):
+                            st.write(str(thought_response))
+                    # last one?
+                    if idx + 1 == len(thought_responses):
+                        continue
+            else:
+                raise ValueError(f"Unsupported thought_type: {session_data.new_thought.response_type}")
+
+    brain_context.write(brain.standard_chat_context())
     status.update(state="complete")
     _display_status_msgs()
 

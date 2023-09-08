@@ -9,13 +9,24 @@ from .chat_session import ChatResponse, ChatSession
 from .settings import StreamlitAppSettings
 
 
-class StartNewThoughtResponse(BaseModel):
-    thought_type: prompts.ThoughtTypes
+class BaseThoughtResponse(BaseModel):
     rationale: str
     raw_response: ChatResponse
+    response_type: str
 
     def __str__(self):
-        return f"{self.thought_type}\n\n{self.rationale}"
+        if msg := self.raw_response.response_message:
+            return f"{msg}\n\n{self.response_type}\n\n{self.rationale}"
+
+        return f"{self.response_type}\n\n{self.rationale}"
+
+
+class StartNewThoughtResponse(BaseThoughtResponse):
+    response_type: prompts.ThoughtTypes
+
+
+class ReflectThoughtResponse(BaseThoughtResponse):
+    response_type: prompts.ReflectActions
 
 
 @dataclass
@@ -36,9 +47,10 @@ class Brain:
         self,
         initial_prompt: str,
         reinforcement_prompt: Optional[str] = None,
+        extra_context: str = "",
     ) -> ChatSession:
         context = self.standard_chat_context()
-        prompt = f"### CONTEXT\n{context}\n\n### CURRENT TASK\n{initial_prompt}"
+        prompt = f"### CONTEXT\n{context}{extra_context}\n\n### CURRENT TASK\n{initial_prompt}"
         return ChatSession(
             initial_system_message=prompt,
             reinforcement_system_msg=reinforcement_prompt,
@@ -53,16 +65,33 @@ class Brain:
             reinforcement_system_msg=reinforce,
             response_schema=prompts.StartNewThoughtAiResponse,
         )
-        response_model = prompts.StartNewThoughtAiResponse.model_validate(response.response_message)
+        response_model = prompts.StartNewThoughtAiResponse.model_validate(response.function_call_args)
 
         return StartNewThoughtResponse(
-            thought_type=response_model.thought_type,
+            response_type=response_model.thought_type,
             rationale=response_model.rationale,
             raw_response=response,
         )
 
-    def start_reflect_thought(self):
-        pass
+    def run_reflect_thought(
+        self, rationale, previous_thought_responses: list[ReflectThoughtResponse] = None
+    ) -> ReflectThoughtResponse:
+        chat = self._chat_session_for_prompt(prompts.REFLECT_PROMPT.format(rationale=rationale))
+        reinforce = None
+        response = chat.get_ai_response(
+            reinforcement_system_msg=reinforce,
+            response_schema=prompts.REFLECT_FNS,
+        )
+        try:
+            reflect_action = prompts.ReflectActions[response.function_call_name]
+            reflect_params = response.function_call_args
+        except KeyError:
+            reflect_action = prompts.ReflectActions.Thinking
+            reflect_params = {}
+
+        return ReflectThoughtResponse(
+            rationale=reflect_params.get("rationale", ""), response_type=reflect_action, raw_response=response
+        )
 
     def refresh(self):
         self.article_topics = self.list_standard_topics()

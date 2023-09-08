@@ -12,8 +12,8 @@ _T = TypeVar("_T", bound=BaseModel)
 
 class ChatMessage(BaseModel):
     role: str
-    content: str | None
-    function_call: dict | None
+    content: Optional[str] = None
+    function_call: Optional[dict] = None
 
     @model_validator(mode="after")
     @classmethod
@@ -43,10 +43,26 @@ class ChatResponse(BaseModel):
     usage: ChatUsage
 
     @property
-    def response_message(self) -> _T | str:
+    def response_message(self) -> str:
         assert self.choices
         choice = self.choices[0]
-        return choice.message.content or json.loads(choice.message.function_call["arguments"])
+        return choice.message.content or ""
+
+    @property
+    def function_call_args(self) -> Optional[dict]:
+        assert self.choices
+        choice = self.choices[0]
+        if not choice.message.function_call:
+            return None
+        return json.loads(choice.message.function_call["arguments"])
+
+    @property
+    def function_call_name(self) -> Optional[str]:
+        assert self.choices
+        choice = self.choices[0]
+        if not choice.message.function_call:
+            return None
+        return choice.message.function_call["name"]
 
     @property
     def was_response_complete(self) -> bool:

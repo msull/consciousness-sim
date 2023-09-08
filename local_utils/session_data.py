@@ -31,7 +31,7 @@ class BaseSessionData(BaseModel):
             st.experimental_set_query_params(s=st.session_state.session_id)
 
         path = session_dir / (st.session_state.session_id + ".json")
-        path.write_text(self.json())
+        path.write_text(self.model_dump_json())
 
     def clear_session(self):
         st.experimental_set_query_params(s="")
