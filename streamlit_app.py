@@ -1,10 +1,12 @@
 import json
 import random
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal, Optional
 
 import numpy as np
 import streamlit as st
+from humanize import precisedelta
 from logzero import logger
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -84,6 +86,15 @@ def main():
                 st.code(_dump(session_data))
 
 
+@st.cache_data(ttl=timedelta(seconds=30))
+def get_cached_sessions(session_data: Path) -> list[str]:
+    sessions = sorted(
+        [x.name.removesuffix(".json") for x in session_data.iterdir()],
+        reverse=True,
+    )
+    return sessions
+
+
 def render_main_functionality(settings: StreamlitAppSettings, session_data: ThoughtData):
     chat_col, sidebar = st.columns((2, 2))
 
@@ -126,17 +137,25 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
         continue_button = st.empty()
         sidebar_error_placeholder = st.empty()
         st.divider()
-        st.button("Close thought", on_click=_clear_thought, args=[session_data], type="primary")
+
+        render_thought_nav_btns(session_data, settings)
+
     status_msgs = status.container().empty()
 
     def _display_status_msgs():
-        status_msgs.code("\n".join(session_data.thought_status_msgs))
+        # inject a special message about though time initiation
+        started_at = datetime.strptime(session_data.session_id[:-6], "%Y%m%d%H%M")
+        ago_friendly = precisedelta(datetime.utcnow() - started_at)
+        msgs = session_data.thought_status_msgs
+        final_msgs = [msgs[0]] + [f"Thought began {ago_friendly} ago"] + msgs[1:]
+        status_msgs.code("\n".join(final_msgs))
 
     def _add_status_msg(msg: str):
         session_data.add_thought_status_msg(msg)
         _display_status_msgs()
 
     if not session_data.thought_status_msgs:
+        _add_status_msg(f"Thought initiated {session_data.session_id}")
         _add_status_msg(f"Thought initiated {session_data.session_id}")
         _add_status_msg(f"Thought Model: {session_data.thought_model}")
 
@@ -262,6 +281,45 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
     brain_context.write(brain.standard_chat_context())
     status.update(state="complete")
     _display_status_msgs()
+
+
+def render_thought_nav_btns(session_data: ThoughtData, settings: StreamlitAppSettings):
+    session_options: list[str] = get_cached_sessions(settings.session_data)
+    current_session_index = session_options.index(session_data.session_id)
+
+    st.write(f"Viewing thought {current_session_index+1} of {len(session_options)} (newest first)")
+
+    c1, c2, c3 = st.columns((1, 2, 1))
+
+    def _back_one():
+        # if we are already at 0, this will go -1 and start us from the bottom
+        idx = current_session_index - 1
+        session_data.switch_sessions(settings.session_data, session_options[idx])
+
+    def _fwd_one():
+        if current_session_index == len(session_options) - 1:
+            idx = 0
+        else:
+            idx = current_session_index + 1
+        session_data.switch_sessions(settings.session_data, session_options[idx])
+
+    with c1:
+        st.button("Prev Thought", use_container_width=True, on_click=_back_one)
+    with c2:
+        thought_id = st.selectbox(
+            "Select specific thought",
+            session_options,
+            index=session_options.index(session_data.session_id),
+            label_visibility="collapsed",
+        )
+
+        if thought_id and thought_id != session_data.session_id:
+            logger.info("Switching thoughts")
+            session_data.switch_sessions(settings.session_data, thought_id)
+            st.experimental_rerun()
+    with c3:
+        st.button("Next Thought", use_container_width=True, on_click=_fwd_one)
+    st.button("Close thought", on_click=_clear_thought, args=[session_data], type="primary", use_container_width=True)
 
 
 def grey_color_func(word, font_size, position, orientation, random_state=None, **kwargs):

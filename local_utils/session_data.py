@@ -39,6 +39,15 @@ class BaseSessionData(BaseModel):
             if field_name in st.session_state:
                 del st.session_state[field_name]
 
+    def switch_sessions(self, session_dir: Path, new_session_id: str):
+        self.clear_session()
+        path = session_dir / (new_session_id + ".json")
+        if path.exists():
+            incoming_session = self.model_validate_json(path.read_text())
+            for field_name in self.model_fields:
+                setattr(self, field_name, getattr(incoming_session, field_name))
+            self.save_to_session_state()
+
     @classmethod
     def init_session(cls: Type[T], session_dir: Optional[Path] = None) -> T:
         # if we have a saved sessions dir and a query param, check correct session is loaded
@@ -60,7 +69,7 @@ class BaseSessionData(BaseModel):
         elif session_dir and query_session:
             path = session_dir / (query_session + ".json")
             if path.exists():
-                session = cls.parse_raw(path.read_text())
+                session = cls.model_validate_json(path.read_text())
 
         if not session:
             session: T = cls(session_dir=session_dir)
