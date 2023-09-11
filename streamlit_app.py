@@ -332,16 +332,26 @@ def _clear_thought(session: ThoughtData):
 
 
 def render_recent_thoughts(settings: StreamlitAppSettings, n=5):
+    complete_only = st.toggle("Complete Thoughts Only")
     Brain(logger=logger, settings=settings)
     here = Path(__file__).parent
 
     brain_mask = np.array(Image.open(str(here / "brain-outline.png")))
     settings.session_data.mkdir(exist_ok=True, parents=True)
     text = []
-    for session_file in sorted([x.name for x in settings.session_data.iterdir()], reverse=True)[:n]:
+    num_matched = 0
+    for session_file in sorted([x.name for x in settings.session_data.iterdir()], reverse=True):
         session_text = (settings.session_data / session_file).read_text()
         obj = ThoughtData.model_validate_json(session_text)
+        if complete_only:
+            if not obj.thought_complete:
+                continue
         text.append(obj.new_thought.rationale)
+        for response in obj.learn_thought_responses or obj.reflect_thought_responses:
+            text.append(response.rationale)
+        num_matched += 1
+        if num_matched >= n:
+            break
 
     stopwords = set(STOPWORDS)
 
