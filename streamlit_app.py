@@ -285,6 +285,13 @@ def render_main_functionality(settings: StreamlitAppSettings, session_data: Thou
 
 def render_thought_nav_btns(session_data: ThoughtData, settings: StreamlitAppSettings):
     session_options: list[str] = get_cached_sessions(settings.session_data)
+    if session_data.session_id not in session_options:
+        # this is a new thought, don't add the nav buttons here yet just show the close button
+        st.button(
+            "Close thought", on_click=_clear_thought, args=[session_data], type="primary", use_container_width=True
+        )
+        return
+
     current_session_index = session_options.index(session_data.session_id)
 
     st.write(f"Viewing thought {current_session_index+1} of {len(session_options)} (newest first)")
@@ -307,13 +314,10 @@ def render_thought_nav_btns(session_data: ThoughtData, settings: StreamlitAppSet
         st.button("Prev Thought", use_container_width=True, on_click=_back_one)
     with c2:
         thought_id = st.selectbox(
-            "Select specific thought",
-            session_options,
-            index=session_options.index(session_data.session_id),
-            label_visibility="collapsed",
+            "Select specific thought", session_options, index=current_session_index, label_visibility="collapsed"
         )
 
-        if thought_id and thought_id != session_data.session_id:
+        if thought_id and thought_id != "new" and thought_id != session_data.session_id:
             logger.info("Switching thoughts")
             session_data.switch_sessions(settings.session_data, thought_id)
             st.experimental_rerun()
@@ -332,7 +336,7 @@ def _clear_thought(session: ThoughtData):
 
 
 def render_recent_thoughts(settings: StreamlitAppSettings, n=5):
-    complete_only = st.toggle("Complete Thoughts Only")
+    include_incomplete = st.toggle("Include incomplete thoughts")
     Brain(logger=logger, settings=settings)
     here = Path(__file__).parent
 
@@ -343,7 +347,7 @@ def render_recent_thoughts(settings: StreamlitAppSettings, n=5):
     for session_file in sorted([x.name for x in settings.session_data.iterdir()], reverse=True):
         session_text = (settings.session_data / session_file).read_text()
         obj = ThoughtData.model_validate_json(session_text)
-        if complete_only:
+        if not include_incomplete:
             if not obj.thought_complete:
                 continue
         text.append(obj.new_thought.rationale)
@@ -354,6 +358,8 @@ def render_recent_thoughts(settings: StreamlitAppSettings, n=5):
             break
 
     stopwords = set(STOPWORDS)
+    stopwords.add("article")
+    stopwords.add("articles")
 
     if text:
         wc = WordCloud(
