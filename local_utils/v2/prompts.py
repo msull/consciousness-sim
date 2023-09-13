@@ -4,9 +4,11 @@ if TYPE_CHECKING:
     from local_utils.v2.thoughts import Thought
 
 AVAILALBLE_TOOLS = """
-CreateArt - Generate a piece of art -- you can use this to photograph things, paint pictures, and produce digital art of all kinds
+CreateArt - Generate a piece of art -- you can use this to photograph things, 
+    paint pictures, and produce digital art of all kinds
 
-WriteInJournal - Record information in a journal; use this whenever you need a step to "Think" about something, for example after QueryForInfo you could journal and then create a piece of art or take a photograph.
+WriteInJournal - Record information in a journal; use this whenever you need a step to "Think" about something, 
+    for example after QueryForInfo you could journal and then create a piece of art or take a photograph.
 
 ReadFromJournal - Returns the contents of your latest 3 journal entries.
 
@@ -14,7 +16,9 @@ WriteBlogPost - Write a new blog post using text and and a single image.
 
 ReadLatestBlogs - Returns the contents of your latest 3 blog posts, useful to ensure continuity.
 
-QueryForInfo - your main interface for asking questions / learning things, you can query for any piece of information and receive a response; information learned in this manner is the only thing you can utilize when writing blog entries.
+QueryForInfo - your main interface for asking questions / learning things, you can query for any piece 
+    of information and receive a response; information learned in this 
+    manner is the only thing you can utilize when writing blog entries.
 """
 
 GET_NEW_THOUGHT = """
@@ -42,7 +46,9 @@ Don't try to do too much in a single thought
 ------
 
 NOW CHOOSE A TASK
-Now is the time to define the specific task you will do, ensuring the use of at least one OUTPUT tool. Define a plan on how to achieve this utilizing the available tools, laying out the decisions you may need to make at each step  using the following format:
+Now is the time to define the specific task you will do, ensuring the use of at least one OUTPUT tool. 
+Define a plan on how to achieve this utilizing the available tools, 
+laying out the decisions you may need to make at each step using the following format:
 
 ## RATIONALE
 
@@ -70,7 +76,8 @@ def get_new_thought(persona: str, goals: str, recent_actions: str):
 
 PLAN_TASK = """
 # CONTEXT
-Given the following rationale, plan, and task, and the listing of available tools, reformat the plan into a json listing.
+Given the following rationale, plan, and task, and the listing of available tools, 
+reformat the plan into a json listing.
 
 # TASK
 
@@ -85,7 +92,7 @@ Given the following rationale, plan, and task, and the listing of available tool
 NOW OUTPUT THE PLAN IN JSON; do not output any additional text other than the raw JSON output.
 Example:
 
-[{'tool_name': "ReadLatestBlogs", "purpose": "Review storyline, characters, and setting of the last three blog posts in the series"},...]
+[{{'tool_name': "ReadLatestBlogs", "purpose": "Review recent blog topics before picking a new one"}},...]
 """.strip()
 
 

@@ -60,16 +60,35 @@ def render_active_thought(brain: BrainV2, session: SessionData):
     with info_col:
         st.image(str(persona.image))
 
+    with info_col:
+        with st.expander("Raw Thought Data"):
+            obj_dump_placeholder = st.empty()
+
+    def _display_thought(display: Thought):
+        if display:
+            obj_dump_placeholder.code(ui.dump_model(thought))
+
     with chat_col:
         with st.chat_message("ai", avatar=str(persona.avatar)):
-            with st.status("Starting a new thought..."):
+            thought_status = st.status("Starting a new thought...")
+            task_placeholder = st.empty()
+            with thought_status:
+                st.info("Generating a new task")
                 if thought is None:
                     thought = brain.start_new_thought(
                         session.initialize_thought_persona, session.initialize_thought_nudge
                     )
+                    _display_thought(thought)
                     session.thought_id = thought.thought_id
                 st.write(thought.it_rationale)
-            st.write(thought.initial_thought)
+                with task_placeholder:
+                    st.write(thought.initial_thought)
+                st.info("Developing task plan")
+                thought_status.update(label="Generating plan for task...")
+                if not thought.plan:
+                    thought = brain.develop_thought_plan(thought)
+                    _display_thought(thought)
+                st.code(ui.dump_model(thought.plan))
 
     with info_col:
         if not thought.thought_complete:
@@ -80,11 +99,10 @@ def render_active_thought(brain: BrainV2, session: SessionData):
             continue_thought = False
 
     if continue_thought:
-        brain.continue_thought(thought)
+        thought = brain.continue_thought(thought)
+        _display_thought(thought)
 
-    with info_col:
-        if thought:
-            st.code(ui.dump_model(thought))
+    _display_thought(thought)
 
 
 def render_thought_selection(brain: BrainV2, session: SessionData):

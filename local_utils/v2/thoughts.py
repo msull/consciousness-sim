@@ -15,6 +15,11 @@ if TYPE_CHECKING:
     from mypy_boto3_dynamodb.service_resource import Table
 
 
+class PlanStep(BaseModel):
+    tool_name: str
+    purpose: str
+
+
 class NewThoughtData(BaseModel):
     persona_name: str
     initial_thought: str
@@ -23,7 +28,8 @@ class NewThoughtData(BaseModel):
 
 
 class UpdateThoughtData(BaseModel):
-    thought_complete: bool = False
+    plan: Optional[list[PlanStep]] = None
+    thought_complete: Optional[bool] = None
 
 
 class Thought(BaseModel):
@@ -32,8 +38,13 @@ class Thought(BaseModel):
     thought_complete: bool = False
     persona_name: str
     user_nudge: Optional[str] = None
+
+    # initial thought
     initial_thought: str
     it_rationale: str
+
+    # thought plan
+    plan: Optional[list[PlanStep]] = None
 
     created_at: datetime
     updated_at: datetime
@@ -56,8 +67,9 @@ class Thought(BaseModel):
         return Thought.model_validate(kwargs)
 
     def update_thought(self, update: UpdateThoughtData) -> "Thought":
-        kwargs = update.model_dump()
         now = datetime.utcnow()
+        kwargs = self.model_dump()
+        kwargs.update(update.model_dump(exclude_none=True, exclude_unset=True, exclude_defaults=True))
         kwargs.update(
             {
                 "version": self.version + 1,

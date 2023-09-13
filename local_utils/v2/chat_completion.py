@@ -30,7 +30,7 @@ def get_completion(prompt: str) -> str:
 
     post_model_outputs_response = stub.PostModelOutputs(
         service_pb2.PostModelOutputsRequest(
-            user_app_id=userDataObject,  # The userDataObject is created in the overview and is required when using a PAT
+            user_app_id=userDataObject,
             model_id=MODEL_ID,
             # version_id=MODEL_VERSION_ID,  # This is optional. Defaults to the latest model version
             inputs=[resources_pb2.Input(data=resources_pb2.Data(text=resources_pb2.Text(raw=prompt)))],

@@ -99,7 +99,15 @@ personas = [
             "feelings to the wider world."
         ),
         physical_description=(
-            "The photograph captures Luna Martinez outdoors, bathed in the golden hue of the setting sun. Luna appears to be in her late 20s or early 30s. She's of average height with a graceful, athletic build. Her olive-toned skin glistens slightly, perhaps from a thin layer of sweat or dew. Luna's deep brown eyes, large and luminous, are looking away from the camera, lost in thought or observing a distant scene. Waves of chestnut hair cascade down her shoulders, with streaks of amber catching the sunlight. She wears a flowing blue dress that seems to ripple with the breeze. A few paint smears on her hands suggest she might have been working on an art piece."
+            "The photograph captures Luna Martinez outdoors, bathed in the golden hue of the setting sun. "
+            "Luna appears to be in her late 20s or early 30s. "
+            "She's of average height with a graceful, athletic build. "
+            "Her olive-toned skin glistens slightly, perhaps from a thin layer of sweat or dew. "
+            "Luna's deep brown eyes, large and luminous, are looking away from the camera, "
+            "lost in thought or observing a distant scene. "
+            "Waves of chestnut hair cascade down her shoulders, with streaks of amber catching the sunlight. "
+            "She wears a flowing blue dress that seems to ripple with the breeze. "
+            "A few paint smears on her hands suggest she might have been working on an art piece."
         ),
         image=ImagePaths.persona("luna-martinez.jpeg"),
         avatar=ImagePaths.persona("luna-martinez-avatar.jpeg"),

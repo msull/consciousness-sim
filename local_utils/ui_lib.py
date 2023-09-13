@@ -61,9 +61,11 @@ def list_incomplete_thoughts() -> list[Thought]:
     return ta.validate_python(_list_incomplete_thoughts())
 
 
-def dump_model(obj: BaseModel | BaseSettings) -> str:
-    obj.model_dump_json()
-    return json.dumps(json.loads(obj.model_dump_json()), indent=2, sort_keys=True)
+def dump_model(obj: BaseModel | BaseSettings | list[BaseModel | BaseSettings]) -> str:
+    if isinstance(obj, list):
+        return json.dumps([json.loads(x.model_dump_json()) for x in obj], indent=2, sort_keys=True)
+    else:
+        return json.dumps(json.loads(obj.model_dump_json()), indent=2, sort_keys=True)
 
 
 def create_tabs(idx: int):

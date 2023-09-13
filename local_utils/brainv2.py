@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from collections.abc import MutableMapping
 from dataclasses import dataclass, field
@@ -5,14 +6,14 @@ from datetime import datetime
 from logging import Logger
 from typing import Optional, Type, TypeVar
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
 from . import ai_actions
 from .helpers import date_id
 from .v2 import prompts
 from .v2.chat_completion import get_completion
 from .v2.personas import Persona, PersonaManager
-from .v2.thoughts import NewThoughtData, Thought, ThoughtMemory
+from .v2.thoughts import NewThoughtData, PlanStep, Thought, ThoughtMemory, UpdateThoughtData
 
 
 class GoalProgress(BaseModel):
@@ -151,13 +152,20 @@ class BrainInterface(ABC):
         return self.thought_memory.write_new_thought(new_thought_data)
 
     def develop_thought_plan(self, thought: Thought) -> Thought:
-        pass
+        plan = self._get_plan_for_thought(thought)
+        return self.thought_memory.update_existing_thought(
+            existing_thought=thought, update_thought_data=UpdateThoughtData(plan=plan)
+        )
 
     def continue_thought(self, thought: Thought) -> Thought:
         pass
 
     @abstractmethod
     def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
+        pass
+
+    @abstractmethod
+    def _get_plan_for_thought(self, thought: Thought) -> list[PlanStep]:
         pass
 
     @abstractmethod
@@ -201,6 +209,13 @@ class BrainInterface(ABC):
 
 @dataclass
 class BrainV2(BrainInterface):
+    def _get_plan_for_thought(self, thought: Thought) -> list[PlanStep]:
+        prompt = prompts.plan_for_task(thought)
+        response = get_completion(prompt)
+        data = json.loads(response)
+        ta = TypeAdapter(list[PlanStep])
+        return ta.validate_python(data)
+
     def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
         prompt = prompts.get_new_thought(
             persona=persona.format(include_physical=True),
