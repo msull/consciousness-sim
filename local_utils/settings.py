@@ -16,6 +16,8 @@ class StreamlitAppSettings(BaseModel):
         default_factory=lambda: Path(st.secrets["SESSION_DIR"]),
     )
 
+    dynamodb_thoughts_table: str = Field(default_factory=lambda: st.secrets["DYNAMODB_THOUGHTS_TABLE"])
+
     @field_validator("openai_api_key", mode="before")
     @classmethod
     def key_is_secret(cls, v: str | SecretStr) -> SecretStr:

@@ -1,6 +1,7 @@
- -c requirements.txt
 pdbpp
 pytest
 pip-tools
 invoke
 watchdog
+boto3-stubs[essential,cognito-idp,sns]
+-r requirements.txt

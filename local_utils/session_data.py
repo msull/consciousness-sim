@@ -34,7 +34,7 @@ class BaseSessionData(BaseModel):
         path.write_text(self.model_dump_json())
 
     def clear_session(self):
-        st.experimental_set_query_params(s="")
+        st.experimental_set_query_params()
         for field_name, field in self.model_fields.items():
             if field_name in st.session_state:
                 del st.session_state[field_name]

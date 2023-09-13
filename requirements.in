@@ -1,6 +1,9 @@
 boto3
+
 botocore>=1.29.143  # resolution takes ages without this
+duckduckgo-search
 humanize
+langchain
 logzero
 numpy
 openai
@@ -9,4 +12,5 @@ pillow
 pydantic
 scipy
 streamlit>=1.26
+tabulate
 wordcloud

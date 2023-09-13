@@ -1,61 +1,39 @@
 import json
-import random
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Literal, Optional
+from datetime import datetime
+from typing import Optional
 
-import numpy as np
 import streamlit as st
-from humanize import precisedelta
 from logzero import logger
-from PIL import Image
 from pydantic import BaseModel, Field
 from pydantic.v1 import BaseSettings
-from wordcloud import STOPWORDS, WordCloud
 
-from local_utils import prompts
-from local_utils.brain import Brain, LearnThoughtResponse, ReflectThoughtResponse, StartNewThoughtResponse
-from local_utils.prompts import ThoughtTypes
 from local_utils.session_data import BaseSessionData
 from local_utils.settings import StreamlitAppSettings
+from local_utils.v2.thoughts import Thought, ThoughtData, ThoughtMemory
 
-st.set_page_config("Consciousness Simulator", layout="wide")
+st.set_page_config("Conciousness Simulator", initial_sidebar_state="collapsed", layout="wide")
 
-
-class ThoughtData(BaseSessionData):
-    thought_model: str = ""
-    trigger_new_thought: bool = False
-    new_thought: Optional[StartNewThoughtResponse] = None
-    reflect_thought_responses: list[ReflectThoughtResponse] = Field(default_factory=list)
-    learn_thought_responses: list[LearnThoughtResponse] = Field(default_factory=list)
-    current_thought_index: int = 0
-    thought_complete: bool = False
-    thought_had_error: bool = False
-    thought_status_msgs: list[str] = Field(default_factory=list)
-
-    def add_reflect_thought_response(self, response: ReflectThoughtResponse):
-        self.reflect_thought_responses.append(response)
-        self.save_to_session_state()
-
-    def add_learn_thought_response(self, response: LearnThoughtResponse):
-        self.learn_thought_responses.append(response)
-        self.save_to_session_state()
-
-    def add_thought_status_msg(self, msg: str):
-        self.thought_status_msgs.append(msg)
-        self.save_to_session_state()
-
-    def get_thought_status(self) -> Literal["running", "complete", "error"]:
-        if self.thought_had_error:
-            return "error"
-        elif self.thought_complete:
-            return "complete"
-        return "running"
+settings = StreamlitAppSettings.load()
+logger.debug(settings.json)
+DEBUG = st.sidebar.checkbox("Debug mode")
 
 
-def trigger_chain_of_thought(session: ThoughtData, model: str):
-    session.trigger_new_thought = True
-    session.thought_model = model
+def check_or_x(value: bool) -> str:
+    return "✅" if value else "❌"
+
+
+@st.cache_resource
+def setup_memory() -> ThoughtMemory:
+    return ThoughtMemory(table_name=settings.dynamodb_thoughts_table)
+
+
+memory = setup_memory()
+
+
+class SessionData(BaseSessionData):
+    session_started: datetime = Field(default_factory=datetime.now)
+    thought_id: Optional[str] = None
+    thought: Optional[Thought] = None
 
 
 def _dump(obj: BaseModel | BaseSettings) -> str:
@@ -63,337 +41,87 @@ def _dump(obj: BaseModel | BaseSettings) -> str:
     return json.dumps(json.loads(obj.model_dump_json()), indent=2, sort_keys=True)
 
 
-def main():
-    settings = StreamlitAppSettings.load()
-    session_data = ThoughtData.init_session(settings.session_data)
-    main_tab, knowledge_tab, thoughts_tab, debug_tab = st.tabs(["Main", "Knowledgebase", "Recent Thoughts", "Debug"])
+def _clear_thought(session: SessionData):
+    session.clear_session()
+    # st.experimental_set_query_params(s="")
 
+
+def main(session: SessionData):
+    main_tab, blog, thoughts_tab, debug_tab = st.tabs(["Home", "AI Generated Blog", "Recent Thoughts", "Debug"])
     try:
-        with knowledge_tab:
-            render_knowledgebase(settings)
-
-        with thoughts_tab:
-            render_recent_thoughts(settings)
+        # with blog:
+        #     render_blog(settings)
+        #
+        # with thoughts_tab:
+        #     render_recent_thoughts(settings)
 
         with main_tab:
-            render_main_functionality(settings, session_data)
+            container = st.container()
+            if not session.thought_id:
+                with container:
+                    render_thought_selection(session)
+            else:
+                with container:
+                    render_active_thought(session)
     finally:
         with debug_tab:
             with st.expander("Settings"):
                 st.code(_dump(settings))
             with st.expander("Session", expanded=True):
-                st.button("Clear session data", on_click=_clear_thought, args=[session_data])
-                st.code(_dump(session_data))
+                st.button("Clear session data", on_click=_clear_thought, args=[session])
+                st.code(_dump(session))
 
 
-@st.cache_data(ttl=timedelta(seconds=30))
-def get_cached_sessions(session_data: Path) -> list[str]:
-    sessions = sorted(
-        [x.name.removesuffix(".json") for x in session_data.iterdir()],
-        reverse=True,
-    )
-    return sessions
+def render_active_thought(session):
+    pass
 
 
-def render_main_functionality(settings: StreamlitAppSettings, session_data: ThoughtData):
-    chat_col, sidebar = st.columns((2, 2))
+def render_thought_selection(session: SessionData):
+    st.write("Start new thought")
 
-    if not session_data.trigger_new_thought:
-        with chat_col:
-            with st.chat_message(name="ai", avatar="assistant"):
-                st.write("Awaiting thought...")
-        with sidebar:
-            with st.form("New thought"):
-                model = st.selectbox("Thought model", ("gpt-3.5-turbo", "gpt-4"))
-                if st.form_submit_button("Trigger new thought"):
-                    trigger_chain_of_thought(session_data, model)
-                    session_data.save_to_session_state()
-                    logger.debug("Rerunning after thought trigger")
-                    st.experimental_rerun()
+    def _start_new():
+        memory.write_new_thought(ThoughtData(descr="My first thought!"))
+        # smh = setup_state_machine_helper()
+        # session.thought_id = smh.trigger_execution()
+        # with st.spinner("Waiting for New Import to be visible in database"):
+        #     load_thought_data(session.thought_id, num_attempts=10)
 
-            st.write("OR")
-            thought_id = st.text_input("Load specific thought")
-            st.write("OR")
-            if not thought_id:
-                sessions = sorted(
-                    [x.name.removesuffix(".json") for x in settings.session_data.iterdir()],
-                    reverse=True,
-                )
-
-                thought_id = st.selectbox("Select specific thought", [""] + sessions)
-
-            if thought_id:
-                session_data.clear_session()
-                st.experimental_set_query_params(s=thought_id)
-                st.experimental_rerun()
-
-        st.stop()
-
-    # brain = Brain(settings=settings, model="gpt-4")
-    brain = Brain(logger=logger, settings=settings, model=session_data.thought_model)
-    with sidebar:
-        status = st.status("This thought chain", state=session_data.get_thought_status(), expanded=True)
-        query_placeholder = st.empty()
-        continue_button = st.empty()
-        sidebar_error_placeholder = st.empty()
-        st.divider()
-
-        render_thought_nav_btns(session_data, settings)
-
-    status_msgs = status.container().empty()
-
-    def _display_status_msgs():
-        # inject a special message about though time initiation
-        started_at = datetime.strptime(session_data.session_id[:-6], "%Y%m%d%H%M")
-        ago_friendly = precisedelta(datetime.utcnow() - started_at)
-        msgs = session_data.thought_status_msgs
-        final_msgs = [msgs[0]] + [f"Thought began {ago_friendly} ago"] + msgs[1:]
-        status_msgs.code("\n".join(final_msgs))
-
-    def _add_status_msg(msg: str):
-        session_data.add_thought_status_msg(msg)
-        _display_status_msgs()
-
-    if not session_data.thought_status_msgs:
-        _add_status_msg(f"Thought initiated {session_data.session_id}")
-        _add_status_msg(f"Thought initiated {session_data.session_id}")
-        _add_status_msg(f"Thought Model: {session_data.thought_model}")
-
-    _display_status_msgs()
-
-    with chat_col:
-        with st.chat_message(name="ai", avatar="assistant"):
-            with st.expander("Current Brain Context"):
-                brain_context = st.empty()
-        with st.chat_message(name="user"):
-            with st.expander("Prompt for new thought chain"):
-                st.write(prompts.START_NEW_THOUGHT_PROMPT)
-        with st.chat_message(name="ai", avatar="assistant"):
-            if not session_data.new_thought:
-                with st.spinner("Selecting thought type..."):
-                    session_data.new_thought = brain.get_new_thought_type()
-                    _add_status_msg(f"Thought Type: {session_data.new_thought.response_type}")
-                    session_data.persist_session_state(settings.session_data)
-
-            label = f"Chosen thought type: {session_data.new_thought.response_type}"
-            with st.expander(label):
-                st.write(str(session_data.new_thought))
-
-        # display responses in the thought chain
-        response_needed = False
-        query_response = None
-
-        if session_data.reflect_thought_responses or session_data.learn_thought_responses:
-            if session_data.new_thought.response_type == ThoughtTypes.REFLECT:
-                thought_prompt_label = "REFLECT thought prompt"
-                thought_prompt = prompts.REFLECT_PROMPT.format(rationale=session_data.new_thought.rationale)
-                thought_responses = session_data.reflect_thought_responses
-
-                with st.chat_message(name="user"):
-                    with st.expander(thought_prompt_label):
-                        st.write(thought_prompt)
-
-                for idx, thought_response in enumerate(thought_responses):
-                    if idx > 0:
-                        with st.chat_message(name="user"):
-                            with st.expander("Response to AI thought"):
-                                st.write(thought_response.prompt)
-                    response_label = thought_response.response_type
-                    with st.chat_message(name="ai", avatar="assistant"):
-                        with st.expander(response_label):
-                            st.write(str(thought_response))
-                        # last one?
-                        if idx + 1 == len(thought_responses):
-                            if thought_response.response_type == prompts.ReflectActions.WriteMetaArticle:
-                                article = thought_response.raw_response.function_call_args["article"]
-                                with st.expander(f"Article `{article}` contents"):
-                                    st.write(thought_response.raw_response.function_call_args["contents"])
-            elif session_data.new_thought.response_type == ThoughtTypes.LEARN:
-                thought_prompt_label = "LEARN thought prompt"
-                thought_prompt = prompts.LEARN_PROMPT.format(rationale=session_data.new_thought.rationale)
-                thought_responses = session_data.learn_thought_responses
-
-                with st.chat_message(name="user"):
-                    with st.expander(thought_prompt_label):
-                        st.write(thought_prompt)
-
-                for idx, thought_response in enumerate(thought_responses):
-                    if idx > 0:
-                        with st.chat_message(name="user"):
-                            with st.expander("Response to AI thought"):
-                                st.write(thought_response.prompt)
-                    response_label = thought_response.response_type
-                    with st.chat_message(name="ai", avatar="assistant"):
-                        with st.expander(response_label):
-                            st.write(str(thought_response))
-                        # last one?
-                        if idx + 1 == len(thought_responses):
-                            if thought_response.response_type == prompts.LearnActions.WriteArticle:
-                                article = thought_response.raw_response.function_call_args["article"]
-                                with st.expander(f"Article `{article}` contents"):
-                                    st.write(thought_response.raw_response.function_call_args["contents"])
-                            elif thought_response.response_type == prompts.LearnActions.QueryForInfo:
-                                query = thought_response.raw_response.function_call_args["q"]
-                                st.write(query)
-
-                                with query_placeholder.container():
-                                    response_needed = True
-                                    st.write(query)
-                                    query_response = st.text_area("Respond")
-
-            else:
-                raise ValueError(f"Unsupported thought_type: {session_data.new_thought.response_type}")
-
-    if not session_data.thought_complete and continue_button.button("Continue thought chain"):
-        if response_needed and not query_response:
-            sidebar_error_placeholder.error("Must respond to query")
-        else:
-            if session_data.new_thought.response_type == ThoughtTypes.REFLECT:
-                with st.spinner("Continuing reflect thought chain..."):
-                    thought_response = brain.run_reflect_thought(
-                        session_data.new_thought.rationale,
-                        previous_thought_responses=session_data.reflect_thought_responses,
-                    )
-                    session_data.add_reflect_thought_response(thought_response)
-                    _add_status_msg(f"Action: {thought_response.response_type}")
-
-                    if thought_response.response_type == prompts.ReflectActions.WriteMetaArticle:
-                        session_data.thought_complete = True
-                        _add_status_msg("Thought completed")
-
-            elif session_data.new_thought.response_type == ThoughtTypes.LEARN:
-                with st.spinner("Continuing learn thought chain..."):
-                    thought_response = brain.run_learn_thought(
-                        session_data.new_thought.rationale,
-                        previous_thought_responses=session_data.learn_thought_responses,
-                        query_response=query_response,
-                    )
-                    session_data.add_learn_thought_response(thought_response)
-                    _add_status_msg(f"Action: {thought_response.response_type}")
-
-                    if thought_response.response_type == prompts.LearnActions.WriteArticle:
-                        session_data.thought_complete = True
-                        _add_status_msg("Thought completed")
-
-            session_data.persist_session_state(settings.session_data)
-            st.experimental_rerun()
-
-    brain_context.write(brain.standard_chat_context())
-    status.update(state="complete")
-    _display_status_msgs()
+    st.button("Begin", on_click=_start_new)
+    # st.subheader("or")
+    st.divider()
+    st.write("Load previous thought")
+    render_resume_thought_selection(session)
 
 
-def render_thought_nav_btns(session_data: ThoughtData, settings: StreamlitAppSettings):
-    session_options: list[str] = get_cached_sessions(settings.session_data)
-    if session_data.session_id not in session_options:
-        # this is a new thought, don't add the nav buttons here yet just show the close button
-        st.button(
-            "Close thought", on_click=_clear_thought, args=[session_data], type="primary", use_container_width=True
-        )
-        return
+def render_resume_thought_selection(session: SessionData):
+    def _load_existing(thought_id: str):
+        session.thought_id = thought_id
 
-    current_session_index = session_options.index(session_data.session_id)
-
-    st.write(f"Viewing thought {current_session_index+1} of {len(session_options)} (newest first)")
-
-    c1, c2, c3 = st.columns((1, 2, 1))
-
-    def _back_one():
-        # if we are already at 0, this will go -1 and start us from the bottom
-        idx = current_session_index - 1
-        session_data.switch_sessions(settings.session_data, session_options[idx])
-
-    def _fwd_one():
-        if current_session_index == len(session_options) - 1:
-            idx = 0
-        else:
-            idx = current_session_index + 1
-        session_data.switch_sessions(settings.session_data, session_options[idx])
-
-    with c1:
-        st.button("Prev Thought", use_container_width=True, on_click=_back_one)
-    with c2:
-        thought_id = st.selectbox(
-            "Select specific thought", session_options, index=current_session_index, label_visibility="collapsed"
-        )
-
-        if thought_id and thought_id != "new" and thought_id != session_data.session_id:
-            logger.info("Switching thoughts")
-            session_data.switch_sessions(settings.session_data, thought_id)
-            st.experimental_rerun()
-    with c3:
-        st.button("Next Thought", use_container_width=True, on_click=_fwd_one)
-    st.button("Close thought", on_click=_clear_thought, args=[session_data], type="primary", use_container_width=True)
-
-
-def grey_color_func(word, font_size, position, orientation, random_state=None, **kwargs):
-    return "hsl(0, 0%%, %d%%)" % random.randint(60, 100)
-
-
-def _clear_thought(session: ThoughtData):
-    session.clear_session()
-    st.experimental_set_query_params(s="")
-
-
-def render_recent_thoughts(settings: StreamlitAppSettings, n=5):
-    include_incomplete = st.toggle("Include incomplete thoughts")
-    Brain(logger=logger, settings=settings)
-    here = Path(__file__).parent
-
-    brain_mask = np.array(Image.open(str(here / "brain-outline.png")))
-    settings.session_data.mkdir(exist_ok=True, parents=True)
-    text = []
-    num_matched = 0
-    for session_file in sorted([x.name for x in settings.session_data.iterdir()], reverse=True):
-        session_text = (settings.session_data / session_file).read_text()
-        obj = ThoughtData.model_validate_json(session_text)
-        if not include_incomplete:
-            if not obj.thought_complete:
-                continue
-        text.append(obj.new_thought.rationale)
-        for response in obj.learn_thought_responses or obj.reflect_thought_responses:
-            text.append(response.rationale)
-        num_matched += 1
-        if num_matched >= n:
-            break
-
-    stopwords = set(STOPWORDS)
-    stopwords.add("article")
-    stopwords.add("articles")
-
-    if text:
-        wc = WordCloud(
-            max_words=2000,
-            scale=2,
-            background_color="white",
-            stopwords=stopwords,
-            contour_width=1,
-            contour_color="black",
-            # color_func=grey_color_func,
-            mask=brain_mask,
-        )
-
-        # generate word cloud
-        wc.generate("\n".join(text))
-        wordcloud = wc.to_array()
-        st.image(wordcloud)
+    display_header = True
+    if recent := memory.list_recent_thoughts(25):
+        for data in recent:
+            display_data = data.model_dump(include={"thought_id", "descr", "version"})
+            display_data["done"] = check_or_x(data.thought_complete)
+            columns = iter(st.columns(len(display_data) + 1))
+            for k, v in display_data.items():
+                with next(columns):
+                    if display_header:
+                        st.subheader(k)
+                    st.write(v)
+            with next(columns):
+                if display_header:
+                    st.button("Refresh")
+                st.button("Load", key=f"load-{data.thought_id}", on_click=_load_existing, args=(data.thought_id,))
+            if display_header:
+                display_header = False
     else:
-        st.write("No recent thoughts")
-
-
-def render_knowledgebase(settings: StreamlitAppSettings):
-    brain = Brain(logger=logger, settings=settings)
-    view_article: str = st.selectbox(
-        "View article", [""] + [f"meta: {x}" for x in brain.list_meta_topics()] + brain.list_standard_topics()
-    )
-    if view_article:
-        if view_article.startswith("meta: "):
-            st.write(brain.read_meta_topic_article(view_article.removeprefix("meta: ")))
-        else:
-            st.write(brain.read_topic_article(view_article))
-    else:
-        st.subheader("Select an article from the list")
+        st.write("*No recent thoughts*")
 
 
 if __name__ == "__main__":
-    main()
+    session = SessionData.init_session()
+    session.save_to_session_state()
+    main(session)
+    if DEBUG:
+        with st.expander("Session state"):
+            st.code(session.json(indent=2))
