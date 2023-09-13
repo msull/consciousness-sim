@@ -6,8 +6,10 @@ from logzero import logger
 from pydantic import BaseModel, TypeAdapter
 from pydantic.v1 import BaseSettings
 
+from local_utils.brainv2 import BrainV2, GoalMemoryInterface, MappingMemory
 from local_utils.session_data import BaseSessionData
 from local_utils.settings import StreamlitAppSettings
+from local_utils.v2.personas import load_default_personas
 from local_utils.v2.thoughts import Thought, ThoughtMemory
 
 
@@ -16,15 +18,29 @@ def check_or_x(value: bool) -> str:
 
 
 @st.cache_resource
-def setup_memory() -> ThoughtMemory:
+def setup_thought_memory() -> ThoughtMemory:
     settings = StreamlitAppSettings.load()
     return ThoughtMemory(table_name=settings.dynamodb_thoughts_table)
+
+
+@st.cache_resource
+def setup_goal_memory() -> GoalMemoryInterface:
+    return MappingMemory()
+
+
+def setup_brain() -> BrainV2:
+    return BrainV2(
+        logger=logger,
+        goal_memory=setup_goal_memory(),
+        thought_memory=setup_thought_memory(),
+        personas=load_default_personas(),
+    )
 
 
 @st.cache_data(ttl=timedelta(seconds=5))
 def _list_recent_thoughts(num: int) -> list[dict]:
     logger.info("Getting recent thoughts from memory")
-    thoughts = setup_memory().list_recently_completed_thoughts(num)
+    thoughts = setup_thought_memory().list_recently_completed_thoughts(num)
     return [x.model_dump() for x in thoughts]
 
 
@@ -36,7 +52,7 @@ def list_recent_thoughts(num=25) -> list[Thought]:
 @st.cache_data(ttl=timedelta(seconds=5))
 def _list_incomplete_thoughts() -> list[dict]:
     logger.info("Getting incomplete thoughts from memory")
-    thoughts = setup_memory().list_incomplete_thoughts()
+    thoughts = setup_thought_memory().list_incomplete_thoughts()
     return [x.model_dump() for x in thoughts]
 
 
@@ -56,12 +72,20 @@ def create_tabs(idx: int):
         return
 
 
+def _hack_index() -> int:
+    return st.session_state.get("debug-bn", 0)
+
+
+def _incr_hack_index():
+    st.session_state["debug-bn"] = _hack_index() + 1
+
+
 def force_home_tab():
-    st.session_state["debug-bn"] = st.session_state.get("debug-bn", 0) + 1
+    _incr_hack_index()
 
 
 def home_tab_hack():
-    idx = st.session_state.get("debug-bn", 0)
+    idx = _hack_index()
 
     for x in range(idx):
         st.empty()
@@ -72,14 +96,13 @@ def render_tabbar():
     return st.tabs(["Home", "AI Generated Blog", "Recent Thoughts", "Debug"])
 
 
-def render_debug_tab(session: BaseSessionData, settings: BaseSettings):
+def render_debug_tab(session: BaseSessionData):
     with st.expander("Settings"):
-        st.code(dump_model(settings))
+        st.code(dump_model(StreamlitAppSettings.load()))
     with st.expander("Session", expanded=True):
-        st.button("Clear session data", on_click=session.clear_session, args=[session])
+        st.button("Clear session data", on_click=session.clear_session)
         st.code(dump_model(session))
-        st.code(st.session_state)
-    if st.toggle("Show incomplete thoughts"):
+    if st.toggle("Show incomplete thoughts", key=f"incomplete-toggle-{_hack_index()}"):
         c1, c2 = st.columns((3, 1))
         with c2:
             form = st.form("Load incomplete")

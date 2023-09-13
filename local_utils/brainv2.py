@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from logging import Logger
 from typing import Optional, Type, TypeVar
 
@@ -10,6 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from . import ai_actions
 from .helpers import date_id
+from .v2.personas import PersonaManager
+from .v2.thoughts import Thought, ThoughtMemory
 
 
 class GoalProgress(BaseModel):
@@ -69,20 +70,8 @@ class Task(BaseModel):
     action_result: list[ActionResult] = Field(default_factory=list)
 
 
-class ThoughtType(str, Enum):
-    set_goal = "set_goal"
-    work_on_goal = "work_on_goal"
-
-
-class Thought(BaseModel):
-    thought_id: str = Field(default_factory=date_id)
-    thought_complete: bool
-    goal_id: Optional[str] = None
-    task: Optional[Task]
-
-
 @dataclass
-class MemoryInterface(ABC):
+class GoalMemoryInterface(ABC):
     @abstractmethod
     def list_goals(self, include_completed=False) -> list[Goal]:
         pass
@@ -97,7 +86,7 @@ class MemoryInterface(ABC):
 
 
 @dataclass()
-class MappingMemory(MemoryInterface):
+class MappingMemory(GoalMemoryInterface):
     memory: MutableMapping[str, Goal] = field(default_factory=dict)
 
     def list_goals(self, include_completed=False) -> list[Goal]:
@@ -147,10 +136,12 @@ class AnswerTrueFalse(BaseModel):
 @dataclass
 class BrainInterface(ABC):
     logger: Logger
-    memory: MemoryInterface
+    goal_memory: GoalMemoryInterface
+    thought_memory: ThoughtMemory
+    personas: PersonaManager
 
     def start_new_thought(self, force_id: Optional[str] = None) -> Thought:
-        goals = self.memory.list_goals()
+        goals = self.goal_memory.list_goals()
         # must always have at least one goal
         if not goals:
             kwargs = {

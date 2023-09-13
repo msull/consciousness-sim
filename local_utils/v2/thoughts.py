@@ -8,19 +8,26 @@ from boto3.dynamodb.conditions import Key
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 from pydantic import BaseModel, TypeAdapter
 
-from local_utils.brainv2 import date_id
+from local_utils.helpers import date_id
 
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb.client import DynamoDBClient
     from mypy_boto3_dynamodb.service_resource import Table
 
 
-class ThoughtData(BaseModel):
-    descr: str
+class NewThoughtData(BaseModel):
+    persona: str
+    user_nudge: Optional[str] = None
+
+
+class UpdateThoughtData(BaseModel):
     thought_complete: bool = False
 
 
-class Thought(ThoughtData):
+class Thought(BaseModel):
+    persona: str
+    user_nudge: Optional[str] = None
+    thought_complete: bool = False
     thought_id: str
     version: int
     created_at: datetime
@@ -30,7 +37,7 @@ class Thought(ThoughtData):
         return self.model_dump()
 
     @classmethod
-    def new_from_thought_data(cls, thought_data: ThoughtData) -> "Thought":
+    def new_from_thought_data(cls, thought_data: NewThoughtData) -> "Thought":
         kwargs = thought_data.model_dump()
         now = datetime.utcnow()
         kwargs.update(
@@ -43,7 +50,7 @@ class Thought(ThoughtData):
         )
         return Thought.model_validate(kwargs)
 
-    def update_thought(self, update: ThoughtData) -> "Thought":
+    def update_thought(self, update: UpdateThoughtData) -> "Thought":
         kwargs = update.model_dump()
         now = datetime.utcnow()
         kwargs.update(
@@ -88,10 +95,10 @@ class ThoughtMemory:
             self._dynamodb_table = dynamodb.Table(self.table_name)
         return self._dynamodb_table
 
-    def write_new_thought(self, thought_data: ThoughtData) -> Thought:
+    def write_new_thought(self, thought_data: NewThoughtData) -> Thought:
         return self._save_new_thought(thought_data)
 
-    def update_existing_thought(self, existing_thought: Thought, update_thought_data: ThoughtData) -> Thought:
+    def update_existing_thought(self, existing_thought: Thought, update_thought_data: UpdateThoughtData) -> Thought:
         latest_version_of_thought = self.read_thought(thought_id=existing_thought.thought_id)
         if existing_thought != latest_version_of_thought:
             raise ValueError("Cannot update from old Thought version")
@@ -146,7 +153,7 @@ class ThoughtMemory:
             )
         return output
 
-    def _save_new_thought(self, thought_data: ThoughtData) -> Thought:
+    def _save_new_thought(self, thought_data: NewThoughtData) -> Thought:
         thought = Thought.new_from_thought_data(thought_data)
         main_item = self._to_dynamodb_item(thought)
         # copy the resource, set version to zero, and generate the db item again
