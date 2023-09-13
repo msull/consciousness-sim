@@ -107,13 +107,27 @@ class ThoughtMemory:
             raise ValueError("No item found with the provided key.")
         return Thought(**item)
 
-    def list_recent_thoughts(self, num_results=5) -> list[Thought]:
+    def _query_to_thoughts(self, index: str, key_condition, limit: int = 25, ascending: bool = True) -> list[Thought]:
         data = self.dynamodb_table.query(
-            IndexName="gsirev", KeyConditionExpression=Key("sk").eq("t|v0"), Limit=num_results, ScanIndexForward=False
+            IndexName=index, KeyConditionExpression=key_condition, Limit=limit, ScanIndexForward=ascending
         )
         ta = TypeAdapter(list[Thought])
-
         return ta.validate_python(data["Items"])
+
+    def list_incomplete_thoughts(self) -> list[Thought]:
+        return self._query_to_thoughts(
+            index="gsi1", key_condition=Key("gsi1pk").eq("t|INCOMPLETE"), ascending=False, limit=100
+        )
+
+    def list_recently_completed_thoughts(self, num_results=5) -> list[Thought]:
+        return self._query_to_thoughts(
+            index="gsi1", key_condition=Key("gsi1pk").eq("t|COMPLETE"), ascending=False, limit=num_results
+        )
+
+    def list_recent_thoughts(self, num_results=5) -> list[Thought]:
+        return self._query_to_thoughts(
+            index="gsirev", key_condition=Key("sk").eq("t|v0"), ascending=False, limit=num_results
+        )
 
     def _to_dynamodb_item(self, thought: Thought) -> dict:
         output: dict = json.loads(thought.model_dump_json())
@@ -123,6 +137,13 @@ class ThoughtMemory:
                 "sk": f"t|v{thought.version}",
             }
         )
+        if thought.version == 0:
+            # add in special attributes on the v0 version
+            output.update(
+                {
+                    "gsi1pk": "t|COMPLETE" if thought.thought_complete else "t|INCOMPLETE",
+                }
+            )
         return output
 
     def _save_new_thought(self, thought_data: ThoughtData) -> Thought:

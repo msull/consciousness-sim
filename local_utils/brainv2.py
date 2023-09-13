@@ -157,7 +157,7 @@ class BrainInterface(ABC):
                 "thought_complete": False,
                 "task": Task(
                     text="Create my first goal",
-                    rationale="As I currently have no goals, I need to first set a goal for myself to focus my actions.",
+                    rationale="As I currently have no goals, I should first set a goal for myself to focus my actions.",
                     plan=[TaskStep(action_name=ai_actions.CreateNewGoal, rationale="Establish my goal")],
                 ),
             }
