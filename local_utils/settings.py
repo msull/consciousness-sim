@@ -5,16 +5,10 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 
 
 class StreamlitAppSettings(BaseModel):
-    app_data: Path = Field(
-        default_factory=lambda: Path(st.secrets["APP_DATA"]),
-    )
-    openai_api_key: SecretStr = Field(
-        default_factory=lambda: st.secrets["OPENAI_API_KEY"],
-        validate_default=True,
-    )
-    session_data: Path = Field(
-        default_factory=lambda: Path(st.secrets["SESSION_DIR"]),
-    )
+    clarifai_pat: str = Field(default_factory=lambda: st.secrets["CLARIFAI_PAT"])
+    app_data: Path = Field(default_factory=lambda: Path(st.secrets["APP_DATA"]))
+    openai_api_key: SecretStr = Field(default_factory=lambda: st.secrets["OPENAI_API_KEY"], validate_default=True)
+    session_data: Path = Field(default_factory=lambda: Path(st.secrets["SESSION_DIR"]))
 
     dynamodb_thoughts_table: str = Field(default_factory=lambda: st.secrets["DYNAMODB_THOUGHTS_TABLE"])
 

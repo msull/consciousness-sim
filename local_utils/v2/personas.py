@@ -22,13 +22,17 @@ class Persona(BaseModel):
     interests: str
     physical_description: str
     image: Path
+    avatar: Path
 
-    def format(self) -> str:
-        return (
+    def format(self, include_physical=False) -> str:
+        descr = (
             f"**{self.name}**\n"
             f"- **Personality Description**: {self.personality_description}\n"
-            f"- **Interests**: {self.interests}\n\n"
+            f"- **Interests**: {self.interests}\n"
         )
+        if include_physical:
+            descr += f"- **Physical Description**: {self.physical_description}\n"
+        return descr
 
 
 class PersonaManager:
@@ -76,6 +80,7 @@ personas = [
             "with one hand holding a scientific journal and the other adjusting her glasses."
         ),
         image=ImagePaths.persona("dr-eleanor-reid.jpeg"),
+        avatar=ImagePaths.persona("dr-eleanor-reid-avatar.jpeg"),
     ),
     Persona(
         name="Luna Martinez",
@@ -94,16 +99,10 @@ personas = [
             "feelings to the wider world."
         ),
         physical_description=(
-            "The photograph captures Luna Martinez outdoors, bathed in the golden"
-            " hue of the setting sun. Luna appears to be in her late 20s or early 30s. "
-            "She's of average height with a graceful, athletic build. Her olive-toned skin glistens "
-            "slightly, perhaps from a thin layer of sweat or dew. Luna's deep brown eyes, large and luminous, "
-            "are looking away from the camera, lost in thought or observing a distant scene. "
-            "Waves of chestnut hair cascade down her shoulders, with streaks of amber catching the sunlight. "
-            "She wears a flowing blue dress that seems to ripple with the breeze. "
-            "A few paint smears on her hands suggest she might have been working on an art piece."
+            "The photograph captures Luna Martinez outdoors, bathed in the golden hue of the setting sun. Luna appears to be in her late 20s or early 30s. She's of average height with a graceful, athletic build. Her olive-toned skin glistens slightly, perhaps from a thin layer of sweat or dew. Luna's deep brown eyes, large and luminous, are looking away from the camera, lost in thought or observing a distant scene. Waves of chestnut hair cascade down her shoulders, with streaks of amber catching the sunlight. She wears a flowing blue dress that seems to ripple with the breeze. A few paint smears on her hands suggest she might have been working on an art piece."
         ),
         image=ImagePaths.persona("luna-martinez.jpeg"),
+        avatar=ImagePaths.persona("luna-martinez-avatar.jpeg"),
     ),
     Persona(
         name="Caleb Fletcher",
@@ -114,9 +113,9 @@ personas = [
             "events, reimagining them in fantastical settings."
         ),
         interests=(
-            "Caleb is actively writing a serial fiction series on his blog"
+            "Caleb is actively writing several serial fiction series on his blog"
             ", drawing from various historical eras and twisting them with fantasy elements. "
-            "When publishing the next story, he rereads the last two entries, ensuring continuity "
+            "When publishing the next story, he always reviews the latest entries, to ensure continuity "
             "and setting the tone for the next thrilling installment. Outside of his writing, "
             "he journals about his process, the challenges he faces, and the joys of crafting narratives. "
             "Occasionally, he researches specific periods or events to enhance the authenticity of his stories."
@@ -132,6 +131,7 @@ personas = [
             "era or perhaps one of his fantastical stories. A leather-bound notebook peeks out from his jacket pocket."
         ),
         image=ImagePaths.persona("caleb-fletcher.jpeg"),
+        avatar=ImagePaths.persona("caleb-fletcher-avatar.jpeg"),
     ),
 ]
 

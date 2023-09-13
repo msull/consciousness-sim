@@ -16,7 +16,9 @@ if TYPE_CHECKING:
 
 
 class NewThoughtData(BaseModel):
-    persona: str
+    persona_name: str
+    initial_thought: str
+    it_rationale: str
     user_nudge: Optional[str] = None
 
 
@@ -25,11 +27,14 @@ class UpdateThoughtData(BaseModel):
 
 
 class Thought(BaseModel):
-    persona: str
-    user_nudge: Optional[str] = None
-    thought_complete: bool = False
     thought_id: str
     version: int
+    thought_complete: bool = False
+    persona_name: str
+    user_nudge: Optional[str] = None
+    initial_thought: str
+    it_rationale: str
+
     created_at: datetime
     updated_at: datetime
 

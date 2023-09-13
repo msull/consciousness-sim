@@ -9,8 +9,10 @@ from pydantic import BaseModel, Field, field_validator
 
 from . import ai_actions
 from .helpers import date_id
-from .v2.personas import PersonaManager
-from .v2.thoughts import Thought, ThoughtMemory
+from .v2 import prompts
+from .v2.chat_completion import get_completion
+from .v2.personas import Persona, PersonaManager
+from .v2.thoughts import NewThoughtData, Thought, ThoughtMemory
 
 
 class GoalProgress(BaseModel):
@@ -140,26 +142,22 @@ class BrainInterface(ABC):
     thought_memory: ThoughtMemory
     personas: PersonaManager
 
-    def start_new_thought(self, force_id: Optional[str] = None) -> Thought:
-        goals = self.goal_memory.list_goals()
-        # must always have at least one goal
-        if not goals:
-            kwargs = {
-                "thought_complete": False,
-                "task": Task(
-                    text="Create my first goal",
-                    rationale="As I currently have no goals, I should first set a goal for myself to focus my actions.",
-                    plan=[TaskStep(action_name=ai_actions.CreateNewGoal, rationale="Establish my goal")],
-                ),
-            }
-            if force_id:
-                kwargs["thought_id"] = force_id
+    def start_new_thought(self, persona: Persona, user_nudge: Optional[str]) -> Thought:
+        new_thought, rationale = self._get_initial_thought_for_persona(persona)
+        new_thought_data = NewThoughtData(
+            persona_name=persona.name, user_nudge=user_nudge, initial_thought=new_thought, it_rationale=rationale
+        )
 
-            return Thought.model_validate(kwargs)
-        else:
-            raise RuntimeError("Not implemented")
+        return self.thought_memory.write_new_thought(new_thought_data)
+
+    def develop_thought_plan(self, thought: Thought) -> Thought:
+        pass
 
     def continue_thought(self, thought: Thought) -> Thought:
+        pass
+
+    @abstractmethod
+    def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
         pass
 
     @abstractmethod
@@ -203,6 +201,20 @@ class BrainInterface(ABC):
 
 @dataclass
 class BrainV2(BrainInterface):
+    def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
+        prompt = prompts.get_new_thought(
+            persona=persona.format(include_physical=True),
+            goals=(
+                "You do not have any active goals. It's okay to not have specific goals, "
+                "but sometimes you'll want to set one."
+            ),
+            recent_actions="You have not take any actions recently.",
+        )
+        response = get_completion(prompt)
+        last_line = response.splitlines()[-1]
+        assert last_line.startswith("I will")
+        return last_line, response
+
     def _should_select_new_goal(self, existing_goals: list[Goal]) -> AnswerTrueFalse:
         pass
 
