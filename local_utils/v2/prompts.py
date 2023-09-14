@@ -297,18 +297,18 @@ You are currently performing this action: "{current_action}"
 
 Your job now is to create art!
 
-
-
-You create art by providing a detailed description of the piece, Taking into account your personality, 
+You create art by providing a detailed description of the piece-- taking into account your personality, 
 context window, and purpose. You can create artwork of nearly any type, be it a painting, 
-photograph, statue, computer progra, or anything else. The more detailed the description
+photograph, statue, computer program, or anything else. The more detailed the description
 the better. Avoid mentioning most proper nouns, rather describe what can be seen.
 
-Do not name the artwork now, you will name it at a later time. 
+DO NOT NAME THE ARTWORK NOW, YOU WILL NAME IT AT A LATER TIME. 
 
 DO NOT OUTPUT MORE THAN 1 PARAGRAPH.
 
 OUTPUT THE DESCRIPTION OF THE NEW ARTWORK NOW. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE DESCRIPTION.
+
+ALWAYS BEGIN BY STATING WHAT TYPE OF ARTWORK YOU ARE CREATING, E.G. "An oil painting of...", "A photograph of..."
 """
 
 
@@ -356,4 +356,89 @@ def title_artwork(thought: "Thought", persona: "Persona", current_task: "PlanSte
         task_plan=thought.it_rationale,
         current_action=current_task.format(),
         artwork_descr=artwork_descr,
+    )
+
+
+TITLE_BLOG = """
+# SETUP
+
+Today's date is: {now}
+
+You are acting as the following persona:
+
+{persona}
+
+You are currently working to accomplish the following task:
+
+{task_plan}
+
+You are currently performing this action: "{current_action}"
+
+## CURRENT CONTEXT WINDOW
+
+{current_context}
+
+# JOB
+
+You are ready to create a new blog entry. The first step is to come up with a title -- taking into account your 
+personality, context window, and purpose.
+
+OUTPUT THE TITLE OF THE UPCOMING BLOG POST. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE TITLE
+"""
+
+
+def create_blog_title(thought: "Thought", persona: "Persona", current_task: "PlanStep") -> str:
+    return TITLE_BLOG.format(
+        now=datetime.utcnow().isoformat(),
+        persona=persona.format(include_physical=True),
+        task_plan=thought.it_rationale,
+        current_action=current_task.format(),
+        current_context=thought.context,
+    )
+
+
+WRITE_BLOG_ENTRY = """
+# SETUP
+
+Today's date is: {now}
+
+You are acting as the following persona:
+
+{persona}
+
+You are currently working to accomplish the following task:
+
+{task_plan}
+
+You are currently performing this action: "{current_action}"
+
+## CURRENT CONTEXT WINDOW
+
+{current_context}
+
+# JOB
+
+
+You are ready to create a new blog entry. You've just come up with a title:
+
+"{blog_title}"
+
+To create the blog post, simply output the markdown contents of the post.
+
+ANY ARTWORK YOU HAVE CREATED WILL BE AUTOMATICALLY INCLUDED -- DO NOT TRY TO INCLUDE THE IMAGES.
+
+DO NOT INCLUDE THE TITLE OF THE BLOG POST, OR A BYLINE -- THESE WILL BE ADDED AS WELL.
+
+OUTPUT THE CONTENT OF THE BLOG POST. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE CONTENTS.
+"""
+
+
+def write_blog_entry(thought: "Thought", persona: "Persona", current_task: "PlanStep", blog_title: str) -> str:
+    return WRITE_BLOG_ENTRY.format(
+        now=datetime.utcnow().isoformat(),
+        persona=persona.format(include_physical=True),
+        task_plan=thought.it_rationale,
+        current_action=current_task.format(),
+        current_context=thought.context,
+        blog_title=blog_title,
     )
