@@ -1,4 +1,5 @@
 # ruff: noqa: E501
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -176,11 +177,15 @@ def summarize_for_context(thought: "Thought", persona: "Persona", current_task: 
 
 
 GENERATE_ANSWER_TO_QUESTION = """
-Write an answer to the following question as if you were writing a wikipedia article; do not generate more than 5 paragraphs:
+Write an answer to the following question or questions as if you were writing a wikipedia article
 
-You may utilize markdown formatting in your response. Do not output anything other than the article text.
+* Be sure to restate the question. If there are multiple questions, address each separately
+* Do not generate more than a few paragraphs for each question..
+* You may utilize markdown formatting in your response
+* Do not output anything other than the restated questions and answers
 
-QUESTION: {question}
+Questions:
+{question}
 """
 
 
@@ -224,6 +229,45 @@ def generate_questions(thought: "Thought", persona: "Persona", current_task: "Pl
     return GENERATE_QUESTIONS.format(
         persona_name=persona.name,
         short_persona=persona.short_description,
+        task_plan=thought.it_rationale,
+        current_action=current_task.format(),
+        current_context=thought.context or "Your context is currently blank",
+    )
+
+
+WRITE_JOURNAL_ENTRY = """
+# SETUP
+
+Today's date is: {now}
+
+You are acting as the following persona:
+
+{persona}
+
+You are currently working to accomplish the following task:
+
+{task_plan}
+
+You are currently performing this action: "{current_action}"
+
+## CURRENT CONTEXT WINDOW
+
+{current_context}
+
+# JOB
+
+Your job now is to write the journal entry, taking into account your personality, context window, and purpose.
+
+You may use markdown formatting in your response.
+
+OUTPUT THE JOURNAL ENTRY NOW. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE ENTRY.
+"""
+
+
+def write_journal_entry(thought: "Thought", persona: "Persona", current_task: "PlanStep") -> str:
+    return WRITE_JOURNAL_ENTRY.format(
+        now=datetime.utcnow().isoformat(),
+        persona=persona.format(include_physical=True),
         task_plan=thought.it_rationale,
         current_action=current_task.format(),
         current_context=thought.context or "Your context is currently blank",

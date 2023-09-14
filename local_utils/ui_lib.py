@@ -26,7 +26,10 @@ def setup_thought_memory() -> ThoughtMemory:
 
 @st.cache_resource
 def setup_goal_memory() -> GoalMemoryInterface:
-    return MappingMemory(memory=Index(str(StreamlitAppSettings.load().app_data / "memory")))
+    settings = StreamlitAppSettings.load()
+    art_storage = settings.app_data / "art_storage"
+    art_storage.mkdir(parents=True, exist_ok=True)
+    return MappingMemory(memory=Index(str(settings.app_data / "memory")), art_storage=art_storage)
 
 
 def setup_brain() -> BrainV2:
@@ -96,7 +99,7 @@ def home_tab_hack():
 
 def render_tabbar():
     home_tab_hack()
-    return st.tabs(["Home", "AI Generated Blog", "Recent Thoughts", "Debug"])
+    return st.tabs(["Home", "AI Output Gallery", "Recent Thoughts", "Debug"])
 
 
 def render_debug_tab(session: BaseSessionData):

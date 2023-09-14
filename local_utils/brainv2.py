@@ -3,7 +3,9 @@ from abc import ABC, abstractmethod
 from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from hashlib import md5
 from logging import Logger
+from pathlib import Path
 from textwrap import dedent
 from typing import Optional, Type, TypeVar
 
@@ -74,10 +76,21 @@ class Task(BaseModel):
     action_result: list[ActionResult] = Field(default_factory=list)
 
 
+class GeneratedArt(BaseModel):
+    persona_name: str
+    date_added: datetime
+    art_descr: str
+    thought_id: str
+
+    def get_file_name(self) -> str:
+        return md5(self.image_descr).hexdigest() + ".jpeg"
+
+
 class JournalEntry(BaseModel):
     persona_name: str
     date_added: datetime
     content: str
+    thought_id: str
 
 
 class BlogEntry(BaseModel):
@@ -87,6 +100,7 @@ class BlogEntry(BaseModel):
     byline: str
     content: str
     image_descr: str
+    thought_id: str
 
     def format(self) -> str:
         formatted = f"""
@@ -106,41 +120,85 @@ class BlogEntry(BaseModel):
 @dataclass
 class GoalMemoryInterface(ABC):
     @abstractmethod
-    def write_journal_entry(self, persona_name: str, content: str) -> JournalEntry:
+    def write_art_piece(
+        self, persona_name: str, art_description: str, art_content: bytes, thought_id: str
+    ) -> GeneratedArt:
         pass
 
+    @abstractmethod
+    def get_latest_art_pieces(self, persona_name: Optional[str] = None, num: int = 5) -> list[GeneratedArt]:
+        pass
+
+    @abstractmethod
+    def write_journal_entry(self, persona_name: str, content: str, thought_id: str) -> JournalEntry:
+        pass
+
+    @abstractmethod
     def get_latest_journal_entries(self, persona_name: Optional[str] = None, num: int = 5) -> list[JournalEntry]:
         pass
 
     @abstractmethod
-    def write_blog_entry(self, persona_name: str, title: str, byline: str, image_descr: str, content: str) -> BlogEntry:
+    def write_blog_entry(
+        self, persona_name: str, title: str, byline: str, image_descr: str, content: str, thought_id: str
+    ) -> BlogEntry:
         pass
 
     @abstractmethod
     def get_latest_blog_entries(self, persona_name: Optional[str] = None, num: int = 5) -> list[BlogEntry]:
         pass
 
-    @abstractmethod
-    def list_goals(self, include_completed=False) -> list[Goal]:
-        pass
-
-    @abstractmethod
-    def get_goal(self, goal_id: str) -> Optional[Goal]:
-        pass
-
-    @abstractmethod
-    def save_new_goal(self, new_goal: CreateNewGoal) -> Goal:
-        pass
+    # @abstractmethod
+    # def list_goals(self, include_completed=False) -> list[Goal]:
+    #     pass
+    #
+    # @abstractmethod
+    # def get_goal(self, goal_id: str) -> Optional[Goal]:
+    #     pass
+    #
+    # @abstractmethod
+    # def save_new_goal(self, new_goal: CreateNewGoal) -> Goal:
+    #     pass
 
 
 @dataclass()
 class MappingMemory(GoalMemoryInterface):
-    memory: MutableMapping[str, Goal | list[JournalEntry | BlogEntry]] = field(default_factory=dict)
+    art_storage: Path
+    memory: MutableMapping[str, dict | list[dict]] = field(default_factory=dict)
 
-    def write_journal_entry(self, persona_name: str, content: str) -> JournalEntry:
-        entry = JournalEntry(persona_name=persona_name, content=content, date_added=datetime.utcnow())
+    def write_art_piece(self, persona_name: str, art_descr: str, art_content: bytes, thought_id: str) -> GeneratedArt:
+        entry = GeneratedArt(
+            persona_name=persona_name,
+            art_descr=art_descr,
+            date_added=datetime.utcnow(),
+            thought_id=thought_id,
+        )
+        art_storage = self.memory.get("art_storage") or []
+        art_storage.append(entry.model_dump())
+        self.memory["art_storage"] = art_storage
+
+        artwork_path = self.art_storage / persona_name / entry.get_file_name()
+        artwork_path.mkdir(parents=True, exist_ok=True)
+        artwork_path.write_bytes(art_content)
+        return entry
+
+    def get_latest_art_pieces(self, persona_name: Optional[str] = None, num: int = 5) -> list[GeneratedArt]:
+        art_storage = self.memory.get("art_storage") or []
+        return_entries = []
+        for entry in art_storage[::-1]:
+            entry = GeneratedArt.model_validate(entry)
+            if persona_name and entry.persona_name != persona_name:
+                continue
+            return_entries.append(entry)
+            if len(return_entries) == num:
+                break
+        return return_entries
+
+    def write_journal_entry(self, persona_name: str, content: str, thought_id: str) -> JournalEntry:
+        entry = JournalEntry(
+            persona_name=persona_name, content=content, date_added=datetime.utcnow(), thought_id=thought_id
+        )
         journal = self.memory.get("journal") or []
-        journal.append(entry)
+        journal.append(entry.model_dump())
         self.memory["journal"] = journal
         return entry
 
@@ -148,6 +206,7 @@ class MappingMemory(GoalMemoryInterface):
         journal = self.memory.get("journal") or []
         return_entries = []
         for entry in journal[::-1]:
+            entry = JournalEntry.model_validate(entry)
             if persona_name and entry.persona_name != persona_name:
                 continue
             return_entries.append(entry)
@@ -155,7 +214,9 @@ class MappingMemory(GoalMemoryInterface):
                 break
         return return_entries
 
-    def write_blog_entry(self, persona_name: str, title: str, byline: str, image_descr: str, content: str) -> BlogEntry:
+    def write_blog_entry(
+        self, persona_name: str, title: str, byline: str, image_descr: str, content: str, thought_id: str
+    ) -> BlogEntry:
         entry = BlogEntry(
             persona_name=persona_name,
             title=title,
@@ -163,10 +224,11 @@ class MappingMemory(GoalMemoryInterface):
             date_added=datetime.utcnow(),
             image_descr=image_descr,
             byline=byline,
+            thought_id=thought_id,
         )
 
         blog = self.memory.get("blog") or []
-        blog.append(entry)
+        blog.append(entry.model_dump())
         self.memory["blog"] = blog
         return entry
 
@@ -174,6 +236,7 @@ class MappingMemory(GoalMemoryInterface):
         blog = self.memory.get("blog") or []
         return_entries = []
         for entry in blog[::-1]:
+            entry = BlogEntry.model_validate(entry)
             if persona_name and entry.persona_name != persona_name:
                 continue
             return_entries.append(entry)
@@ -181,41 +244,41 @@ class MappingMemory(GoalMemoryInterface):
                 break
         return return_entries
 
-    def list_goals(self, include_completed=False) -> list[Goal]:
-        return sorted(
-            [x for x in self.memory.values() if include_completed or not x.completed_at],
-            key=lambda x: x.added_at,
-        )
-
-    def save_new_goal(self, new_goal: CreateNewGoal) -> Goal:
-        goal = Goal(
-            text=new_goal.text,
-            rationale=new_goal.rationale,
-            added_at=datetime.utcnow(),
-            completed_at=None,
-            goal_progress=[],
-        )
-        assert goal.goal_id not in self.memory
-        self.memory[goal.goal_id] = goal
-        return goal
-
-    def get_goal(self, goal_id: str) -> Optional[Goal]:
-        return self.memory.get(goal_id)
-
-    def add_progress_note_to_goal(self, goal_id: str, note: str, goal_complete: bool) -> Goal:
-        goal = self.get_goal(goal_id)
-        if not goal:
-            raise ValueError(f"Goal not found {goal_id=}")
-        if goal.completed_at:
-            raise RuntimeError("Cannot update already completed goal")
-        now = datetime.utcnow()
-        goal.goal_progress.append(GoalProgress(note=note, added_at=now))
-        if goal_complete:
-            goal.completed_at = now
-
-        self.memory[goal.goal_id] = goal
-
-        return goal
+    # def list_goals(self, include_completed=False) -> list[Goal]:
+    #     return sorted(
+    #         [x for x in self.memory.values() if include_completed or not x.completed_at],
+    #         key=lambda x: x.added_at,
+    #     )
+    #
+    # def save_new_goal(self, new_goal: CreateNewGoal) -> Goal:
+    #     goal = Goal(
+    #         text=new_goal.text,
+    #         rationale=new_goal.rationale,
+    #         added_at=datetime.utcnow(),
+    #         completed_at=None,
+    #         goal_progress=[],
+    #     )
+    #     assert goal.goal_id not in self.memory
+    #     self.memory[goal.goal_id] = goal
+    #     return goal
+    #
+    # def get_goal(self, goal_id: str) -> Optional[Goal]:
+    #     return self.memory.get(goal_id)
+    #
+    # def add_progress_note_to_goal(self, goal_id: str, note: str, goal_complete: bool) -> Goal:
+    #     goal = self.get_goal(goal_id)
+    #     if not goal:
+    #         raise ValueError(f"Goal not found {goal_id=}")
+    #     if goal.completed_at:
+    #         raise RuntimeError("Cannot update already completed goal")
+    #     now = datetime.utcnow()
+    #     goal.goal_progress.append(GoalProgress(note=note, added_at=now))
+    #     if goal_complete:
+    #         goal.completed_at = now
+    #
+    #     self.memory[goal.goal_id] = goal
+    #
+    #     return goal
 
 
 class AnswerTrueFalse(BaseModel):
@@ -257,6 +320,8 @@ class BrainInterface(ABC):
                 context, full_output = self._handle_read_latest_blogs_action(thought, step)
             case prompts.ToolNames.QueryForInfo:
                 context, full_output = self._handle_query_for_info_action(thought, step)
+            case prompts.ToolNames.WriteInJournal:
+                context, full_output = self._handle_write_journal_entry_action(thought, step)
             case _:
                 raise ValueError("Unhandled thought response")
 
@@ -271,54 +336,21 @@ class BrainInterface(ABC):
 
         return updated_thought, full_output
 
+    @abstractmethod
+    def _handle_write_journal_entry_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+        pass
+
+    @abstractmethod
     def _handle_read_latest_blogs_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
-        latest_blog_entries = self.goal_memory.get_latest_blog_entries(persona_name=thought.persona_name)
-        if not latest_blog_entries:
-            blog_contents = "You have not written any blog entries yet, your next entry will be your first."
-        else:
-            blog_contents = "\n\n---\n\n".join(x.format() for x in latest_blog_entries)
+        pass
 
-        persona = self.personas.get_persona_by_name(thought.persona_name)
-
-        prompt = prompts.summarize_for_context(thought, persona, step, blog_contents)
-        response = get_completion(prompt)
-        # if not last_line.startswith("I will"):
-        #     raise BadAiResponse("AI Response does not contain expected task statement.")
-        return response, blog_contents
-
+    @abstractmethod
     def _handle_query_for_info_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
-        persona = self.personas.get_persona_by_name(thought.persona_name)
-
-        # 1. generate search queries
-        queries = self._generate_research_queries(thought, persona, step)
-        # 2. have gpt-4 simulate responses to the queries -- later integrate search, user feedback, etc.
-        responses = []
-        for query in queries:
-            new_response = self._generate_response_to_question(query)
-            responses.append(new_response)
-
-        q_and_a = []
-        for q, a in zip(queries, responses):
-            q_and_a.append(f'Query: "{q}"\n\nResult: {a}\n\n---\n\n')
-
-        full_response = "".join(q_and_a)
-
-        # 3. summarize for context
-        summarize_prompt = prompts.summarize_for_context(thought, persona, step.format(), full_response)
-        new_context = get_completion(summarize_prompt)
-
-        return new_context, full_response
-
-    def _generate_research_queries(self, thought: Thought, persona: Persona, step: PlanStep) -> list[str]:
-        response = get_completion(prompts.generate_questions(thought, persona, step))
-        questions = [x for x in response.splitlines() if x.strip()]
-        self.logger.debug("NEW QUESTIONS")
-        self.logger.debug(questions)
-        return questions
+        pass
 
     @staticmethod
-    def _generate_response_to_question(question: str) -> str:
-        return get_completion(prompts.general_question_answer(question))
+    def _generate_response_to_questions(questions: str) -> str:
+        return get_completion(prompts.general_question_answer(questions))
 
     @abstractmethod
     def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
@@ -376,6 +408,52 @@ class BadAiResponse(RuntimeError):
 
 @dataclass
 class BrainV2(BrainInterface):
+    def _handle_write_journal_entry_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+        persona = self.personas.get_persona_by_name(thought.persona_name)
+
+        journal_prompt = prompts.write_journal_entry(thought, persona, step)
+        journal_entry = get_completion(journal_prompt)
+        self.goal_memory.write_journal_entry(persona.name, journal_entry, thought_id=thought.thought_id)
+
+        # journal entry replaces current context completely
+        return journal_entry, journal_entry
+
+    def _handle_read_latest_blogs_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+        latest_blog_entries = self.goal_memory.get_latest_blog_entries(persona_name=thought.persona_name)
+        if not latest_blog_entries:
+            blog_contents = "You have not written any blog entries yet, your next entry will be your first."
+        else:
+            blog_contents = "\n\n---\n\n".join(x.format() for x in latest_blog_entries)
+
+        persona = self.personas.get_persona_by_name(thought.persona_name)
+
+        prompt = prompts.summarize_for_context(thought, persona, step, blog_contents)
+        response = get_completion(prompt)
+        # if not last_line.startswith("I will"):
+        #     raise BadAiResponse("AI Response does not contain expected task statement.")
+        return response, blog_contents
+
+    def _handle_query_for_info_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+        persona = self.personas.get_persona_by_name(thought.persona_name)
+
+        # 1. generate search queries
+        queries = self._generate_research_queries(thought, persona, step)
+        # 2. have gpt-4 simulate responses to the queries -- later integrate search, user feedback, etc.
+        full_response = self._generate_response_to_questions('\n'.join(queries))
+
+        # 3. summarize for context
+        summarize_prompt = prompts.summarize_for_context(thought, persona, step, full_response)
+        new_context = get_completion(summarize_prompt)
+
+        return new_context, full_response
+
+    def _generate_research_queries(self, thought: Thought, persona: Persona, step: PlanStep) -> list[str]:
+        response = get_completion(prompts.generate_questions(thought, persona, step))
+        questions = [x for x in response.splitlines() if x.strip()]
+        self.logger.debug("NEW QUESTIONS")
+        self.logger.debug(questions)
+        return questions
+
     def _get_plan_for_thought(self, thought: Thought) -> list[PlanStep]:
         prompt = prompts.plan_for_task(thought)
         response = get_completion(prompt)

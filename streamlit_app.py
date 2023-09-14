@@ -1,10 +1,14 @@
 from datetime import datetime
+from pathlib import Path
 from textwrap import dedent
 from time import sleep
 from typing import Optional
 
+import numpy as np
 import streamlit as st
+from PIL import Image
 from pydantic import Field
+from wordcloud import STOPWORDS, WordCloud
 
 from local_utils import ui_lib as ui
 from local_utils.brainv2 import BrainV2
@@ -29,14 +33,14 @@ class SessionData(BaseSessionData):
 def main(session: SessionData):
     brain = ui.setup_brain()
 
-    main_tab, blog, thoughts_tab, debug_tab = ui.render_tabbar()
+    main_tab, ai_output_tab, thoughts_tab, debug_tab = ui.render_tabbar()
 
     try:
         # with blog:
         #     render_blog(settings)
         #
-        # with thoughts_tab:
-        #     render_recent_thoughts(settings)
+        with thoughts_tab:
+            render_recent_thoughts(brain)
 
         with main_tab:
             st.header("Consciousness Simulator")
@@ -52,7 +56,7 @@ def main(session: SessionData):
                 
                 - **Planning & Execution**: After settling on a task, the AI plans the steps needed to achieve it. Watch as it maps out its strategy and then dives into execution, harnessing its vast toolkit.
                 
-                - **Exploring Outputs**: The app provides dedicated tabs where you can view the tangible results of the AI's endeavors. Whether it's the blog tab that showcases published posts, or the upcoming AI gallery and AI journal tabs to witness its artistic creations and introspective entries, there's a plethora of content awaiting your exploration.
+                - **Exploring Outputs**: The app provides dedicated tabs where you can view the tangible results of the AI's endeavors. Visit the output tab to witness its artistic creations and introspective entries.
             """  # noqa: E501
 
             intro = dedent(intro)
@@ -133,15 +137,17 @@ def render_active_thought(brain: BrainV2, session: SessionData):
 
             st.write(f"**{next_step.tool_name}: {next_step.purpose}**")
 
-            with st.expander("Current thought context", expanded=True):
-                st.write(thought.context)
-
             def clicked():
                 session.continue_thought = True
 
             if not session.continue_thought:
                 st.button("Continue thought", use_container_width=True, type="primary", on_click=clicked)
+
             continue_thought_placeholder = st.empty()
+
+            with st.expander("Current thought context", expanded=True):
+                st.write(thought.context)
+
         else:
             st.write("Thought complete")
             session.continue_thought = False
@@ -151,6 +157,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
         st.subheader("Plan")
 
         active_step_placeholder = None
+        current_task = "Continuing thought..."
         for idx, step in enumerate(thought.plan):
             step_num = idx + 1
             if step_num > steps_completed:
@@ -158,6 +165,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
                 st.write(f"{step_num}. {step.purpose}")
                 if active_step_placeholder is None:
                     # placeholder where work will occur
+                    current_task = f"Performing action: {step.tool_name}..."
                     active_step_placeholder = st.empty()
             else:
                 st.write(f"{step_num}. ~{step.purpose}~")
@@ -166,7 +174,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
         with active_step_placeholder:
             st.info("Step in progress...")
         with continue_thought_placeholder:
-            with st.spinner("Continuing thought..."):
+            with st.spinner(current_task):
                 _, full_response = brain.continue_thought(thought)
                 session.continue_thought = False
                 session.last_full_response = full_response
@@ -236,6 +244,43 @@ def render_load_prior_thought_selection(brain: BrainV2, persona: Persona, sessio
                 display_header = False
     else:
         st.write("*No recent thoughts*")
+
+
+def render_recent_thoughts(brain: BrainV2):
+    here = Path(__file__).parent
+
+    brain_mask = np.array(Image.open(str(here / "brain-outline.png")))
+    text = []
+
+    persona_name = st.selectbox("View thoughts for Persona", ["blend thoughts from all"] + brain.personas.list_persona_names())
+    if persona_name == "blend thoughts from all":
+        persona_name = None
+
+    for entry in brain.goal_memory.get_latest_journal_entries(num=10, persona_name=persona_name):
+        text.append(entry.content)
+
+    stopwords = set(STOPWORDS)
+    stopwords.add("article")
+    stopwords.add("articles")
+
+    if text:
+        wc = WordCloud(
+            max_words=2000,
+            scale=2,
+            background_color="white",
+            stopwords=stopwords,
+            contour_width=1,
+            contour_color="black",
+            # color_func=grey_color_func,
+            mask=brain_mask,
+        )
+
+        # generate word cloud
+        wc.generate("\n".join(text))
+        wordcloud = wc.to_array()
+        st.image(wordcloud)
+    else:
+        st.write("No recent thoughts")
 
 
 if __name__ == "__main__":
