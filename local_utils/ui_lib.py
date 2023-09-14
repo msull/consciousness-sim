@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 
 import streamlit as st
+from diskcache import Index
 from logzero import logger
 from pydantic import BaseModel, TypeAdapter
 from pydantic.v1 import BaseSettings
@@ -25,7 +26,7 @@ def setup_thought_memory() -> ThoughtMemory:
 
 @st.cache_resource
 def setup_goal_memory() -> GoalMemoryInterface:
-    return MappingMemory()
+    return MappingMemory(memory=Index(str(StreamlitAppSettings.load().app_data / "memory")))
 
 
 def setup_brain() -> BrainV2:

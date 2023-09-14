@@ -19,6 +19,9 @@ class PlanStep(BaseModel):
     tool_name: str
     purpose: str
 
+    def format(self):
+        return f"{self.tool_name}: {self.purpose}"
+
 
 class NewThoughtData(BaseModel):
     persona_name: str
@@ -51,7 +54,6 @@ class Thought(BaseModel):
     # plan execution
     steps_completed: int = 0
     context: str = ""
-    last_full_response: Optional[str] = None
 
     created_at: datetime
     updated_at: datetime

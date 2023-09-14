@@ -1,8 +1,19 @@
+from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from local_utils.v2.personas import Persona
     from local_utils.v2.thoughts import Thought
+
+
+class ToolNames(str, Enum):
+    CreateArt = "CreateArt"
+    WriteInJournal = "WriteInJournal"
+    ReadFromJournal = "ReadFromJournal"
+    WriteBlogPost = "WriteBlogPost"
+    ReadLatestBlogs = "ReadLatestBlogs"
+    QueryForInfo = "QueryForInfo"
+
 
 AVAILALBLE_TOOLS = """
 CreateArt - Generate a piece of art -- you can use this to photograph things, 
@@ -13,7 +24,8 @@ WriteInJournal - Record information in a journal; use this whenever you need a s
 
 ReadFromJournal - Returns the contents of your latest 3 journal entries.
 
-WriteBlogPost - Write a new blog post using text and and a single image.
+WriteBlogPost - Write a new blog post using text and and a single image; ensure you are ready to publish before
+    using this action, as there is no editing or drafts.
 
 ReadLatestBlogs - Returns the contents of your latest 3 blog posts, useful to ensure continuity.
 
@@ -68,6 +80,10 @@ For example, if I were planning to write in my blog, I might:
 
 ## Task
 I will...
+
+----
+
+Respond now, ensuring your Task begins with "I will"
 """.strip()
 
 
@@ -101,3 +117,58 @@ Example:
 
 def plan_for_task(thought: "Thought"):
     return PLAN_TASK.format(task_plan=thought.it_rationale, tools=AVAILALBLE_TOOLS)
+
+
+# prompt to take some info, more than I want to keep, and combine it with the existing AI managed "Context"
+SUMMARIZE_FOR_CONTEXT = """
+# SETUP
+
+You are acting as the following persona:
+
+* {persona_name}
+* {short_persona}
+
+You are currently working to accomplish the following task:
+
+{task_plan}
+
+You have just executed this action: "{current_action}"
+
+The output from this action will follow. 
+
+# JOB
+
+Your job now is to consider the output of the action and add information relevant to your task plan
+from this output into your context window. This context window is the only part of the output that 
+will be carried forward to the future actions. Capture whatever may be useful in your future actions,
+including specific quotes when appropriate to the task at hand.
+
+Here is your current context window -- you must retain or rewrite this information, along with whatever
+additional information you want to add based on the output you receive
+
+
+
+## CURRENT CONTEXT WINDOW
+
+{current_context}
+
+~~~
+
+OUTPUT ONLY THE NEW CONTEXT WINDOW WITH NO ADDITIONAL TEXT. DO NOT UTILIZE MARKDOWN FORMATTING IN THIS RESPONSE
+
+ACTION OUTPUT BEGINS NOW:
+
+{summarize_this}
+
+"""
+
+
+def summarize_for_context(thought: "Thought", persona: "Persona", current_task: str, data: str) -> str:
+    return SUMMARIZE_FOR_CONTEXT.format(
+        persona_name=persona.name,
+        short_persona=persona.short_description,
+        task_plan=thought.it_rationale,
+        current_action=current_task,
+        current_context=thought.context or "Your context is currently blank",
+        summarize_this=data,
+    )

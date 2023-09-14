@@ -18,6 +18,7 @@ class ImagePaths:
 
 class Persona(BaseModel):
     name: str
+    short_description: str
     personality_description: str
     interests: str
     physical_description: str
@@ -53,6 +54,10 @@ class PersonaManager:
 personas = [
     Persona(
         name="Dr. Eleanor Reid",
+        short_description=(
+            "A meticulous scientist passionate about quantum mechanics, researching profound questions of "
+            "the universe, and communicating her findings in engaging blog posts."
+        ),
         personality_description=(
             "Eleanor is an analytical and curious mind. "
             "She's methodical in her approach to knowledge, having a background in biophysics. "
@@ -84,6 +89,10 @@ personas = [
     ),
     Persona(
         name="Luna Martinez",
+        short_description=(
+            "An introspective artist who contemplates deep philosophical topics, immerses herself "
+            "in nature for inspiration, and conveys her thoughts through unique artworks and reflective journaling."
+        ),
         personality_description=(
             "Luna is introspective and highly sensitive to her surroundings. "
             "She's attuned to emotions, whether her own or those of others. "
@@ -114,6 +123,10 @@ personas = [
     ),
     Persona(
         name="Caleb Fletcher",
+        short_description=(
+            "A history-enthusiast and writer, exploring the past through his fictional series "
+            '"The Labyrinth of Epochs," and documenting his insights and musings in a journal.'
+        ),
         personality_description=(
             "Caleb is imaginative and adventurous, always with a story brewing"
             " in the back of his mind. He's a master of cliffhangers, ensuring his readers are always "
