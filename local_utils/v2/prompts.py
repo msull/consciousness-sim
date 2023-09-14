@@ -1,9 +1,10 @@
+# ruff: noqa: E501
 from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from local_utils.v2.personas import Persona
-    from local_utils.v2.thoughts import Thought
+    from local_utils.v2.thoughts import PlanStep, Thought
 
 
 class ToolNames(str, Enum):
@@ -59,7 +60,7 @@ Don't try to do too much in a single thought
 ------
 
 NOW CHOOSE A TASK
-Now is the time to define the specific task you will do, ensuring the use of at least one OUTPUT tool. 
+Now is the time to define the specific task you will do, ensuring the use of at least one output tool. 
 Define a plan on how to achieve this utilizing the available tools, 
 laying out the decisions you may need to make at each step using the following format:
 
@@ -163,12 +164,67 @@ ACTION OUTPUT BEGINS NOW:
 """
 
 
-def summarize_for_context(thought: "Thought", persona: "Persona", current_task: str, data: str) -> str:
+def summarize_for_context(thought: "Thought", persona: "Persona", current_task: "PlanStep", data: str) -> str:
     return SUMMARIZE_FOR_CONTEXT.format(
         persona_name=persona.name,
         short_persona=persona.short_description,
         task_plan=thought.it_rationale,
-        current_action=current_task,
+        current_action=current_task.format(),
         current_context=thought.context or "Your context is currently blank",
         summarize_this=data,
+    )
+
+
+GENERATE_ANSWER_TO_QUESTION = """
+Write an answer to the following question as if you were writing a wikipedia article; do not generate more than 5 paragraphs:
+
+You may utilize markdown formatting in your response. Do not output anything other than the article text.
+
+QUESTION: {question}
+"""
+
+
+def general_question_answer(question: str) -> str:
+    return GENERATE_ANSWER_TO_QUESTION.format(question=question)
+
+
+GENERATE_QUESTIONS = """
+# SETUP
+
+You are acting as the following persona:
+
+* {persona_name}
+* {short_persona}
+
+You are currently working to accomplish the following task:
+
+{task_plan}
+
+You are currently performing this action: "{current_action}"
+
+
+## CURRENT CONTEXT WINDOW
+
+{current_context}
+
+# JOB
+
+Your job now is to consider the action you are performing, your overall task, and your current context and come
+up with one or more appropriate questions or queries. You will then receive responses to those queries to update
+your context window. 
+
+You may ask 1, 2, or 3 questions. The more detailed and specific the better quality the response will be.
+One detailed question is better than 3 lackluster questions.
+
+OUTPUT YOUR QUESTIONS NOW, EACH ON A SEPARATE LINE. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE QUESTIONS.
+"""
+
+
+def generate_questions(thought: "Thought", persona: "Persona", current_task: "PlanStep") -> str:
+    return GENERATE_QUESTIONS.format(
+        persona_name=persona.name,
+        short_persona=persona.short_description,
+        task_plan=thought.it_rationale,
+        current_action=current_task.format(),
+        current_context=thought.context or "Your context is currently blank",
     )

@@ -255,10 +255,12 @@ class BrainInterface(ABC):
         match step.tool_name:
             case prompts.ToolNames.ReadLatestBlogs:
                 context, full_output = self._handle_read_latest_blogs_action(thought, step)
-                thought_update.context = context
+            case prompts.ToolNames.QueryForInfo:
+                context, full_output = self._handle_query_for_info_action(thought, step)
             case _:
                 raise ValueError("Unhandled thought response")
 
+        thought_update.context = context
         thought_update.steps_completed = current_step
         if is_last_step:
             thought_update.thought_complete = True
@@ -269,7 +271,7 @@ class BrainInterface(ABC):
 
         return updated_thought, full_output
 
-    def _handle_read_latest_blogs_action(self, thought: Thought, step: PlanStep):
+    def _handle_read_latest_blogs_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
         latest_blog_entries = self.goal_memory.get_latest_blog_entries(persona_name=thought.persona_name)
         if not latest_blog_entries:
             blog_contents = "You have not written any blog entries yet, your next entry will be your first."
@@ -278,11 +280,45 @@ class BrainInterface(ABC):
 
         persona = self.personas.get_persona_by_name(thought.persona_name)
 
-        prompt = prompts.summarize_for_context(thought, persona, step.format(), blog_contents)
+        prompt = prompts.summarize_for_context(thought, persona, step, blog_contents)
         response = get_completion(prompt)
         # if not last_line.startswith("I will"):
         #     raise BadAiResponse("AI Response does not contain expected task statement.")
         return response, blog_contents
+
+    def _handle_query_for_info_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+        persona = self.personas.get_persona_by_name(thought.persona_name)
+
+        # 1. generate search queries
+        queries = self._generate_research_queries(thought, persona, step)
+        # 2. have gpt-4 simulate responses to the queries -- later integrate search, user feedback, etc.
+        responses = []
+        for query in queries:
+            new_response = self._generate_response_to_question(query)
+            responses.append(new_response)
+
+        q_and_a = []
+        for q, a in zip(queries, responses):
+            q_and_a.append(f'Query: "{q}"\n\nResult: {a}\n\n---\n\n')
+
+        full_response = "".join(q_and_a)
+
+        # 3. summarize for context
+        summarize_prompt = prompts.summarize_for_context(thought, persona, step.format(), full_response)
+        new_context = get_completion(summarize_prompt)
+
+        return new_context, full_response
+
+    def _generate_research_queries(self, thought: Thought, persona: Persona, step: PlanStep) -> list[str]:
+        response = get_completion(prompts.generate_questions(thought, persona, step))
+        questions = [x for x in response.splitlines() if x.strip()]
+        self.logger.debug("NEW QUESTIONS")
+        self.logger.debug(questions)
+        return questions
+
+    @staticmethod
+    def _generate_response_to_question(question: str) -> str:
+        return get_completion(prompts.general_question_answer(question))
 
     @abstractmethod
     def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
