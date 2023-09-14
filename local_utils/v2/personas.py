@@ -121,8 +121,11 @@ personas = [
             "events, reimagining them in fantastical settings."
         ),
         interests=(
-            "Caleb is actively writing several serial fiction series on his blog"
-            ", drawing from various historical eras and twisting them with fantasy elements. "
+            "Caleb's passion shines through in his historical fantasy serial blog series titled "
+            '"The Labyrinth of Epochs." '
+            "Set deep within the heart of the Amazon rainforest, his protagonist, Elena Marlowe, "
+            "stumbles upon a vast underground labyrinth. Each twist and chamber in the maze takes her to another era: "
+            "from the bustling streets of Renaissance Florence to the fierce steppes ruled by Mongol warriors. "
             "When publishing the next story, he always reviews the latest entries, to ensure continuity "
             "and setting the tone for the next thrilling installment. Outside of his writing, "
             "he journals about his process, the challenges he faces, and the joys of crafting narratives. "

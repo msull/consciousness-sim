@@ -30,6 +30,8 @@ class NewThoughtData(BaseModel):
 class UpdateThoughtData(BaseModel):
     plan: Optional[list[PlanStep]] = None
     thought_complete: Optional[bool] = None
+    context: Optional[str] = None
+    steps_completed: Optional[int] = None
 
 
 class Thought(BaseModel):
@@ -45,6 +47,11 @@ class Thought(BaseModel):
 
     # thought plan
     plan: Optional[list[PlanStep]] = None
+
+    # plan execution
+    steps_completed: int = 0
+    context: str = ""
+    last_full_response: Optional[str] = None
 
     created_at: datetime
     updated_at: datetime

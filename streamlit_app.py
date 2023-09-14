@@ -1,4 +1,5 @@
 from datetime import datetime
+from time import sleep
 from typing import Optional
 
 import streamlit as st
@@ -16,6 +17,7 @@ st.set_page_config("Conciousness Simulator", initial_sidebar_state="collapsed", 
 class SessionData(BaseSessionData):
     session_started: datetime = Field(default_factory=datetime.now)
     initialize_new_thought: bool = False
+    continue_thought: bool = False
     initialize_thought_persona: Optional[Persona] = None
     initialize_thought_nudge: Optional[str] = None
     thought_id: Optional[str] = None
@@ -88,19 +90,66 @@ def render_active_thought(brain: BrainV2, session: SessionData):
                 if not thought.plan:
                     thought = brain.develop_thought_plan(thought)
                     _display_thought(thought)
+                thought_status.update(label="Decided upon a task")
                 st.code(ui.dump_model(thought.plan))
 
-    with info_col:
+    with chat_col:
+        steps_completed = thought.steps_completed
+        st.divider()
         if not thought.thought_complete:
             st.info("Active thought - proceed?")
-            continue_thought = st.button("Continue thought", use_container_width=True)
+            st.subheader("Up Next")
+            try:
+                next_step = thought.plan[steps_completed]
+            except IndexError:
+                st.error("Ran out of steps in plan but thought not marked complete!")
+                st.stop()
+
+            st.write(f"**{next_step.tool_name}: {next_step.purpose}**")
+
+            def clicked():
+                session.continue_thought = True
+
+            if not session.continue_thought:
+                st.button("Continue thought", use_container_width=True, type="primary", on_click=clicked)
+            continue_thought_placeholder = st.empty()
         else:
             st.write("Thought complete")
-            continue_thought = False
+            session.continue_thought = False
 
-    if continue_thought:
-        thought = brain.continue_thought(thought)
-        _display_thought(thought)
+        st.divider()
+
+        st.subheader("Plan")
+
+        active_step_placeholder = None
+        for idx, step in enumerate(thought.plan):
+            step_num = idx + 1
+            if step_num > steps_completed:
+                # step not completed yet
+                st.write(f"{step_num}. {step.purpose}")
+                if active_step_placeholder is None:
+                    # placeholder where work will occur
+                    active_step_placeholder = st.empty()
+            else:
+                st.write(f"{step_num}. ~{step.purpose}~")
+                with st.expander(f"Step {step_num} results"):
+                    st.write(f"{step_num}. {step.purpose}")
+                    st.write("stuff here")
+
+    if session.continue_thought:
+        with active_step_placeholder:
+            st.info("Step in progress...")
+        with continue_thought_placeholder:
+            status = st.status("Continuing thought...")
+            with status:
+                st.write("Executing next action...")
+                sleep(10)
+                thought = brain.continue_thought(thought)
+                _display_thought(thought)
+                session.continue_thought = False
+    else:
+        with active_step_placeholder:
+            st.info("Waiting for user to continue thought...")
 
     _display_thought(thought)
 

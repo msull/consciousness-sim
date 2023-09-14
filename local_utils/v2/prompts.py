@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from local_utils.v2.personas import Persona
     from local_utils.v2.thoughts import Thought
 
 AVAILALBLE_TOOLS = """
@@ -70,8 +71,10 @@ I will...
 """.strip()
 
 
-def get_new_thought(persona: str, goals: str, recent_actions: str):
-    return GET_NEW_THOUGHT.format(persona=persona, goals=goals, recent_actions=recent_actions, tools=AVAILALBLE_TOOLS)
+def get_new_thought(persona: "Persona", recent_actions: str):
+    return GET_NEW_THOUGHT.format(
+        persona=persona.format(include_physical=True), recent_actions=recent_actions, tools=AVAILALBLE_TOOLS
+    )
 
 
 PLAN_TASK = """

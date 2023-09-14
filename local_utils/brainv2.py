@@ -158,7 +158,7 @@ class BrainInterface(ABC):
         )
 
     def continue_thought(self, thought: Thought) -> Thought:
-        pass
+        return thought
 
     @abstractmethod
     def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
@@ -207,6 +207,13 @@ class BrainInterface(ABC):
         pass
 
 
+class BadAiResponse(RuntimeError):
+    """Error raised when AI response doesn't contain the expected information."""
+
+    def __init__(self, msg):
+        self.msg = msg
+
+
 @dataclass
 class BrainV2(BrainInterface):
     def _get_plan_for_thought(self, thought: Thought) -> list[PlanStep]:
@@ -218,16 +225,17 @@ class BrainV2(BrainInterface):
 
     def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
         prompt = prompts.get_new_thought(
-            persona=persona.format(include_physical=True),
-            goals=(
-                "You do not have any active goals. It's okay to not have specific goals, "
-                "but sometimes you'll want to set one."
-            ),
+            persona=persona,
+            # goals=(
+            #     "You do not have any active goals. It's okay to not have specific goals, "
+            #     "but sometimes you'll want to set one."
+            # ),
             recent_actions="You have not take any actions recently.",
         )
         response = get_completion(prompt)
         last_line = response.splitlines()[-1]
-        assert last_line.startswith("I will")
+        if not last_line.startswith("I will"):
+            raise BadAiResponse("AI Response does not contain expected task statement.")
         return last_line, response
 
     def _should_select_new_goal(self, existing_goals: list[Goal]) -> AnswerTrueFalse:
