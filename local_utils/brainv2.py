@@ -7,7 +7,7 @@ from hashlib import md5
 from logging import Logger
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Type, TypeVar
+from typing import Callable, Optional, Type, TypeVar
 
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
@@ -119,6 +119,11 @@ class BlogEntry(BaseModel):
         return dedent(formatted)
 
 
+class ArtworkDoesNotExist(RuntimeError):
+    def __init__(self, msg):
+        self.msg = msg
+
+
 @dataclass
 class GoalMemoryInterface(ABC):
     @abstractmethod
@@ -197,7 +202,7 @@ class MappingMemory(GoalMemoryInterface):
     def read_art_contents(self, art: GeneratedArt) -> bytes:
         artwork_path = self.art_storage / art.persona_name / art.get_file_name()
         if not artwork_path.exists():
-            raise RuntimeError("Artwork contents file does not exist")
+            raise ArtworkDoesNotExist("Artwork contents file does not exist")
         return artwork_path.read_bytes()
 
     def get_latest_art_pieces(self, persona_name: Optional[str] = None, num: int = 5) -> list[GeneratedArt]:
@@ -307,6 +312,11 @@ class AnswerTrueFalse(BaseModel):
     rationale: str = Field(..., description="Explain why you have made this choice")
 
 
+class ActionCallback(BaseModel):
+    status: str
+    details: str
+
+
 @dataclass
 class BrainInterface(ABC):
     logger: Logger
@@ -328,7 +338,13 @@ class BrainInterface(ABC):
             existing_thought=thought, update_thought_data=UpdateThoughtData(plan=plan)
         )
 
-    def continue_thought(self, thought: Thought) -> tuple[Thought, str]:
+    def continue_thought(
+        self, thought: Thought, status_callback_fn: Callable[[ActionCallback], None] = None
+    ) -> tuple[Thought, str]:
+        def _status_callback_handler(status: str, details=""):
+            if status_callback_fn:
+                status_callback_fn(ActionCallback.model_validate({"status": status, "details": details}))
+
         current_step = thought.steps_completed + 1
         step = thought.plan[thought.steps_completed]
         is_last_step = current_step == len(thought.plan)
@@ -336,15 +352,21 @@ class BrainInterface(ABC):
 
         match step.tool_name:
             case prompts.ToolNames.ReadLatestBlogs:
-                context, full_output = self._handle_read_latest_blogs_action(thought, step)
+                context, full_output = self._handle_read_latest_blogs_action(thought, step, _status_callback_handler)
             case prompts.ToolNames.QueryForInfo:
-                context, full_output = self._handle_query_for_info_action(thought, step)
+                context, full_output = self._handle_query_for_info_action(thought, step, _status_callback_handler)
             case prompts.ToolNames.WriteInJournal:
-                context, full_output = self._handle_write_journal_entry_action(thought, step)
+                context, full_output = self._handle_write_journal_entry_action(thought, step, _status_callback_handler)
             case prompts.ToolNames.ReadFromJournal:
-                context, full_output = self._handle_read_latest_journal_entries_action(thought, step)
+                context, full_output = self._handle_read_latest_journal_entries_action(
+                    thought, step, _status_callback_handler
+                )
             case prompts.ToolNames.CreateArt:
-                context, full_output = self._handle_create_art_action(thought, step)
+                context, full_output = self._handle_create_art_action(thought, step, _status_callback_handler)
+            case prompts.ToolNames.WriteBlogPost:
+                breakpoint()
+                context = thought.context
+                full_output = "Published a new blog post"
             case _:
                 raise ValueError("Unhandled thought response")
 
@@ -360,23 +382,33 @@ class BrainInterface(ABC):
         return updated_thought, full_output
 
     @abstractmethod
-    def _handle_create_art_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_create_art_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         pass
 
     @abstractmethod
-    def _handle_write_journal_entry_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_write_journal_entry_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         pass
 
     @abstractmethod
-    def _handle_read_latest_journal_entries_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_read_latest_journal_entries_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         pass
 
     @abstractmethod
-    def _handle_read_latest_blogs_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_read_latest_blogs_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         pass
 
     @abstractmethod
-    def _handle_query_for_info_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_query_for_info_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         pass
 
     @staticmethod
@@ -439,14 +471,23 @@ class BadAiResponse(RuntimeError):
 
 @dataclass
 class BrainV2(BrainInterface):
-    def _handle_create_art_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_create_art_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         persona = self.personas.get_persona_by_name(thought.persona_name)
 
+        callback("Crafting new piece of art", "")
         artwork_prompt = prompts.create_artwork(thought, persona, step)
         artwork_description = get_completion(artwork_prompt)
+
+        callback("Naming new artwork", artwork_description)
+
         title_prompt = prompts.title_artwork(thought, persona, step, artwork_description)
         artwork_title = get_completion(title_prompt)
-        artwork_title = "Untitled - " + datetime.utcnow().strftime("%Y-%m-%d")
+
+        callback(f"Named: {artwork_title} - rendering image", artwork_title)
+
+        image_bytes = generate_image(artwork_description)
 
         new_art = self.goal_memory.write_art_piece(
             persona_name=persona.name, title=artwork_title, art_descr=artwork_description, thought_id=thought.thought_id
@@ -456,8 +497,6 @@ class BrainV2(BrainInterface):
         created_art = "**I created a new piece of art!**\n\n"
         created_art += f"* TITLE: {artwork_title}\n"
         created_art += f"* DESCRIPTION: {artwork_description}\n"
-
-        image_bytes = generate_image(artwork_description)
 
         self.goal_memory.write_art_contents(new_art, image_bytes)
 
@@ -469,7 +508,9 @@ class BrainV2(BrainInterface):
         # journal entry replaces current context completely
         return context, artwork_description
 
-    def _handle_write_journal_entry_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_write_journal_entry_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         persona = self.personas.get_persona_by_name(thought.persona_name)
 
         journal_prompt = prompts.write_journal_entry(thought, persona, step)
@@ -479,7 +520,9 @@ class BrainV2(BrainInterface):
         # journal entry replaces current context completely
         return journal_entry, journal_entry
 
-    def _handle_read_latest_journal_entries_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_read_latest_journal_entries_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         latest_journal_entries = self.goal_memory.get_latest_journal_entries(persona_name=thought.persona_name)
         if not latest_journal_entries:
             journal_contents = "You have not written any journal entries yet, your next entry will be your first."
@@ -492,7 +535,9 @@ class BrainV2(BrainInterface):
         response = get_completion(prompt)
         return response, journal_contents
 
-    def _handle_read_latest_blogs_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_read_latest_blogs_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         latest_blog_entries = self.goal_memory.get_latest_blog_entries(persona_name=thought.persona_name)
         if not latest_blog_entries:
             blog_contents = "You have not written any blog entries yet, your next entry will be your first."
@@ -507,7 +552,9 @@ class BrainV2(BrainInterface):
         #     raise BadAiResponse("AI Response does not contain expected task statement.")
         return response, blog_contents
 
-    def _handle_query_for_info_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+    def _handle_query_for_info_action(
+        self, thought: Thought, step: PlanStep, callback: Callable[[str, str], None]
+    ) -> tuple[str, str]:
         persona = self.personas.get_persona_by_name(thought.persona_name)
 
         # 1. generate search queries
