@@ -126,7 +126,7 @@ class GoalMemoryInterface(ABC):
         pass
 
     @abstractmethod
-    def get_latest_art_pieces(self, persona_name: Optional[str] = None, num: int = 5) -> list[GeneratedArt]:
+    def get_latest_art_pieces(self, persona_name: Optional[str] = None, num: int = 3) -> list[GeneratedArt]:
         pass
 
     @abstractmethod
@@ -134,7 +134,7 @@ class GoalMemoryInterface(ABC):
         pass
 
     @abstractmethod
-    def get_latest_journal_entries(self, persona_name: Optional[str] = None, num: int = 5) -> list[JournalEntry]:
+    def get_latest_journal_entries(self, persona_name: Optional[str] = None, num: int = 3) -> list[JournalEntry]:
         pass
 
     @abstractmethod
@@ -144,7 +144,7 @@ class GoalMemoryInterface(ABC):
         pass
 
     @abstractmethod
-    def get_latest_blog_entries(self, persona_name: Optional[str] = None, num: int = 5) -> list[BlogEntry]:
+    def get_latest_blog_entries(self, persona_name: Optional[str] = None, num: int = 3) -> list[BlogEntry]:
         pass
 
     # @abstractmethod
@@ -322,6 +322,8 @@ class BrainInterface(ABC):
                 context, full_output = self._handle_query_for_info_action(thought, step)
             case prompts.ToolNames.WriteInJournal:
                 context, full_output = self._handle_write_journal_entry_action(thought, step)
+            case prompts.ToolNames.ReadFromJournal:
+                context, full_output = self._handle_read_latest_journal_entries_action(thought, step)
             case _:
                 raise ValueError("Unhandled thought response")
 
@@ -338,6 +340,10 @@ class BrainInterface(ABC):
 
     @abstractmethod
     def _handle_write_journal_entry_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+        pass
+
+    @abstractmethod
+    def _handle_read_latest_journal_entries_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
         pass
 
     @abstractmethod
@@ -417,6 +423,19 @@ class BrainV2(BrainInterface):
 
         # journal entry replaces current context completely
         return journal_entry, journal_entry
+
+    def _handle_read_latest_journal_entries_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+        latest_journal_entries = self.goal_memory.get_latest_journal_entries(persona_name=thought.persona_name)
+        if not latest_journal_entries:
+            journal_contents = "You have not written any journal entries yet, your next entry will be your first."
+        else:
+            journal_contents = "\n\n---\n\n".join(x.content for x in latest_journal_entries)
+
+        persona = self.personas.get_persona_by_name(thought.persona_name)
+
+        prompt = prompts.summarize_for_context(thought, persona, step, journal_contents)
+        response = get_completion(prompt)
+        return response, journal_contents
 
     def _handle_read_latest_blogs_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
         latest_blog_entries = self.goal_memory.get_latest_blog_entries(persona_name=thought.persona_name)
