@@ -15,6 +15,7 @@ from . import ai_actions
 from .helpers import date_id
 from .v2 import prompts
 from .v2.chat_completion import get_completion
+from .v2.image_gen import generate_image
 from .v2.personas import Persona, PersonaManager
 from .v2.thoughts import NewThoughtData, PlanStep, Thought, ThoughtMemory, UpdateThoughtData
 
@@ -79,11 +80,12 @@ class Task(BaseModel):
 class GeneratedArt(BaseModel):
     persona_name: str
     date_added: datetime
+    title: str
     art_descr: str
     thought_id: str
 
     def get_file_name(self) -> str:
-        return md5(self.image_descr).hexdigest() + ".jpeg"
+        return md5(self.art_descr.encode()).hexdigest() + ".jpeg"
 
 
 class JournalEntry(BaseModel):
@@ -120,9 +122,15 @@ class BlogEntry(BaseModel):
 @dataclass
 class GoalMemoryInterface(ABC):
     @abstractmethod
-    def write_art_piece(
-        self, persona_name: str, art_description: str, art_content: bytes, thought_id: str
-    ) -> GeneratedArt:
+    def write_art_piece(self, persona_name: str, title: str, art_descr: str, thought_id: str) -> GeneratedArt:
+        pass
+
+    @abstractmethod
+    def write_art_contents(self, art: GeneratedArt, contents: bytes):
+        pass
+
+    @abstractmethod
+    def read_art_contents(self, art: GeneratedArt) -> bytes:
         pass
 
     @abstractmethod
@@ -165,9 +173,10 @@ class MappingMemory(GoalMemoryInterface):
     art_storage: Path
     memory: MutableMapping[str, dict | list[dict]] = field(default_factory=dict)
 
-    def write_art_piece(self, persona_name: str, art_descr: str, art_content: bytes, thought_id: str) -> GeneratedArt:
+    def write_art_piece(self, persona_name: str, title: str, art_descr: str, thought_id: str) -> GeneratedArt:
         entry = GeneratedArt(
             persona_name=persona_name,
+            title=title,
             art_descr=art_descr,
             date_added=datetime.utcnow(),
             thought_id=thought_id,
@@ -176,10 +185,20 @@ class MappingMemory(GoalMemoryInterface):
         art_storage.append(entry.model_dump())
         self.memory["art_storage"] = art_storage
 
-        artwork_path = self.art_storage / persona_name / entry.get_file_name()
-        artwork_path.mkdir(parents=True, exist_ok=True)
-        artwork_path.write_bytes(art_content)
         return entry
+
+    def write_art_contents(self, art: GeneratedArt, contents: bytes):
+        artwork_path = self.art_storage / art.persona_name / art.get_file_name()
+        artwork_path.parent.mkdir(parents=True, exist_ok=True)
+        if artwork_path.exists():
+            raise RuntimeError("Artwork already exists")
+        artwork_path.write_bytes(contents)
+
+    def read_art_contents(self, art: GeneratedArt) -> bytes:
+        artwork_path = self.art_storage / art.persona_name / art.get_file_name()
+        if not artwork_path.exists():
+            raise RuntimeError("Artwork contents file does not exist")
+        return artwork_path.read_bytes()
 
     def get_latest_art_pieces(self, persona_name: Optional[str] = None, num: int = 5) -> list[GeneratedArt]:
         art_storage = self.memory.get("art_storage") or []
@@ -324,6 +343,8 @@ class BrainInterface(ABC):
                 context, full_output = self._handle_write_journal_entry_action(thought, step)
             case prompts.ToolNames.ReadFromJournal:
                 context, full_output = self._handle_read_latest_journal_entries_action(thought, step)
+            case prompts.ToolNames.CreateArt:
+                context, full_output = self._handle_create_art_action(thought, step)
             case _:
                 raise ValueError("Unhandled thought response")
 
@@ -337,6 +358,10 @@ class BrainInterface(ABC):
         )
 
         return updated_thought, full_output
+
+    @abstractmethod
+    def _handle_create_art_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+        pass
 
     @abstractmethod
     def _handle_write_journal_entry_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
@@ -414,6 +439,36 @@ class BadAiResponse(RuntimeError):
 
 @dataclass
 class BrainV2(BrainInterface):
+    def _handle_create_art_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
+        persona = self.personas.get_persona_by_name(thought.persona_name)
+
+        artwork_prompt = prompts.create_artwork(thought, persona, step)
+        artwork_description = get_completion(artwork_prompt)
+        title_prompt = prompts.title_artwork(thought, persona, step, artwork_description)
+        artwork_title = get_completion(title_prompt)
+        artwork_title = "Untitled - " + datetime.utcnow().strftime("%Y-%m-%d")
+
+        new_art = self.goal_memory.write_art_piece(
+            persona_name=persona.name, title=artwork_title, art_descr=artwork_description, thought_id=thought.thought_id
+        )
+        context = thought.context.strip()
+
+        created_art = "**I created a new piece of art!**\n\n"
+        created_art += f"* TITLE: {artwork_title}\n"
+        created_art += f"* DESCRIPTION: {artwork_description}\n"
+
+        image_bytes = generate_image(artwork_description)
+
+        self.goal_memory.write_art_contents(new_art, image_bytes)
+
+        if context:
+            context = f"{created_art}\n---\n\n{context}"
+        else:
+            context = created_art
+
+        # journal entry replaces current context completely
+        return context, artwork_description
+
     def _handle_write_journal_entry_action(self, thought: Thought, step: PlanStep) -> tuple[str, str]:
         persona = self.personas.get_persona_by_name(thought.persona_name)
 
@@ -458,7 +513,7 @@ class BrainV2(BrainInterface):
         # 1. generate search queries
         queries = self._generate_research_queries(thought, persona, step)
         # 2. have gpt-4 simulate responses to the queries -- later integrate search, user feedback, etc.
-        full_response = self._generate_response_to_questions('\n'.join(queries))
+        full_response = self._generate_response_to_questions("\n".join(queries))
 
         # 3. summarize for context
         summarize_prompt = prompts.summarize_for_context(thought, persona, step, full_response)

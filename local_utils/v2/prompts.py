@@ -272,3 +272,88 @@ def write_journal_entry(thought: "Thought", persona: "Persona", current_task: "P
         current_action=current_task.format(),
         current_context=thought.context or "Your context is currently blank",
     )
+
+
+CREATE_ARTWORK = """
+# SETUP
+
+Today's date is: {now}
+
+You are acting as the following persona:
+
+{persona}
+
+You are currently working to accomplish the following task:
+
+{task_plan}
+
+You are currently performing this action: "{current_action}"
+
+## CURRENT CONTEXT WINDOW
+
+{current_context}
+
+# JOB
+
+Your job now is to create art!
+
+
+
+You create art by providing a detailed description of the piece, Taking into account your personality, 
+context window, and purpose. You can create artwork of nearly any type, be it a painting, 
+photograph, statue, computer progra, or anything else. The more detailed the description
+the better. Avoid mentioning most proper nouns, rather describe what can be seen.
+
+Do not name the artwork now, you will name it at a later time. 
+
+DO NOT OUTPUT MORE THAN 1 PARAGRAPH.
+
+OUTPUT THE DESCRIPTION OF THE NEW ARTWORK NOW. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE DESCRIPTION.
+"""
+
+
+def create_artwork(thought: "Thought", persona: "Persona", current_task: "PlanStep") -> str:
+    return CREATE_ARTWORK.format(
+        now=datetime.utcnow().isoformat(),
+        persona=persona.format(include_physical=True),
+        task_plan=thought.it_rationale,
+        current_action=current_task.format(),
+        current_context=thought.context or "Your context is currently blank",
+    )
+
+
+TITLE_ARTWORK = """
+# SETUP
+
+Today's date is: {now}
+
+You are acting as the following persona:
+
+{persona}
+
+You are currently working to accomplish the following task:
+
+{task_plan}
+
+You are currently performing this action: "{current_action}"
+
+# JOB
+
+You've just created a new piece of art. Now you must give it a title
+
+Here is the description of the art you've created:
+
+{artwork_descr}
+
+OUTPUT THE NAME OF THE NEW ARTWORK NOW. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE NAME
+"""
+
+
+def title_artwork(thought: "Thought", persona: "Persona", current_task: "PlanStep", artwork_descr: str) -> str:
+    return TITLE_ARTWORK.format(
+        now=datetime.utcnow().isoformat(),
+        persona=persona.format(include_physical=True),
+        task_plan=thought.it_rationale,
+        current_action=current_task.format(),
+        artwork_descr=artwork_descr,
+    )
