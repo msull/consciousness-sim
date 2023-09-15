@@ -18,22 +18,22 @@ class ToolNames(str, Enum):
 
 
 AVAILALBLE_TOOLS = """
+ReadLatestBlogs - Returns the contents of your latest 3 blog posts, useful to ensure continuity.
+
+ReadFromJournal - Returns the contents of your latest 3 journal entries.
+
 CreateArt - Generate a piece of art -- you can use this to photograph things, 
     paint pictures, and produce digital art of all kinds
 
 WriteInJournal - Record information in a journal; use this whenever you need a step to "Think" about something, 
     for example after QueryForInfo you could journal and then create a piece of art or take a photograph.
 
-ReadFromJournal - Returns the contents of your latest 3 journal entries.
-
-WriteBlogPost - Write a new blog post using text and and a single image; ensure you are ready to publish before
+WriteBlogPost - Write a new blog post using text any art you have created; ensure you are ready to publish before
     using this action, as there is no editing or drafts.
 
-ReadLatestBlogs - Returns the contents of your latest 3 blog posts, useful to ensure continuity.
-
 QueryForInfo - your main interface for asking questions / learning things, you can query for any piece 
-    of information and receive a response; information learned in this 
-    manner is the only thing you can utilize when writing blog entries.
+    of information and receive a response; information learned in this manner is the only thing you can utilize 
+    when writing blog entries.
 """
 
 GET_NEW_THOUGHT = """
@@ -55,6 +55,8 @@ Don't try to do too much in a single thought
 {tools}
 
 ## RECENTLY COMPLETED ACTIONS
+
+Tasks you have recently completed, most recent first:
 
 {recent_actions}
 

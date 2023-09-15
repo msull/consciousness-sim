@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import streamlit as st
-from PIL import Image
 from dateutil.tz import tzutc
+from PIL import Image
 from pydantic import Field
 from wordcloud import STOPWORDS, WordCloud
 
@@ -77,6 +77,13 @@ def main(session: SessionData):
 
 
 def render_active_thought(brain: BrainV2, session: SessionData):
+    proceed_automatically = st.toggle(
+        "Allow thought to proceed automatically",
+        help=(
+            "When disabled, the user must click to continue the thought "
+            "for every step; when enabled the thought will proceed without user interaction"
+        ),
+    )
     chat_col, info_col = st.columns((3, 1))
 
     if session.thought_id:
@@ -128,7 +135,6 @@ def render_active_thought(brain: BrainV2, session: SessionData):
         steps_completed = thought.steps_completed
         if not thought.thought_complete:
             st.divider()
-            st.info("Active thought - proceed?")
             st.subheader("Up Next")
             try:
                 next_step = thought.plan[steps_completed]
@@ -140,6 +146,9 @@ def render_active_thought(brain: BrainV2, session: SessionData):
 
             def clicked():
                 session.continue_thought = True
+
+            if proceed_automatically:
+                clicked()
 
             if not session.continue_thought:
                 st.button("Continue thought", use_container_width=True, type="primary", on_click=clicked)
@@ -184,6 +193,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
                 if data.status:
                     status.update(label=f"{current_task}: {data.status}")
                 if data.details:
+                    status.update(expanded=True)
                     status.write(data.details)
 
             with status:
