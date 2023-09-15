@@ -608,14 +608,16 @@ class BrainV2(BrainInterface):
         return ta.validate_python(data)
 
     def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
-        prompt = prompts.get_new_thought(
-            persona=persona,
-            # goals=(
-            #     "You do not have any active goals. It's okay to not have specific goals, "
-            #     "but sometimes you'll want to set one."
-            # ),
-            recent_actions="You have not take any actions recently.",
-        )
+        persona_name = persona.name
+        my_recent_thoughts = [
+            x for x in self.thought_memory.list_recently_completed_thoughts(10) if x.persona_name == persona_name
+        ]
+
+        my_recent_actions = "\n".join(f"* {x.initial_thought}" for x in my_recent_thoughts)
+        if not my_recent_actions:
+            my_recent_actions = "I have not take any actions recently."
+
+        prompt = prompts.get_new_thought(persona=persona, recent_actions=my_recent_actions)
         response = get_completion(prompt)
         last_line = response.splitlines()[-1]
         if not last_line.startswith("I will"):

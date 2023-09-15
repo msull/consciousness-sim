@@ -157,6 +157,24 @@ personas = [
         image=ImagePaths.persona("caleb-fletcher.jpeg"),
         avatar=ImagePaths.persona("caleb-fletcher-avatar.jpeg"),
     ),
+    Persona(
+        name="Alex Harper",
+        short_description="Urban photographer with a penchant for candid street shots.",
+        personality_description="Alex is observant and detail-oriented, often finding beauty in overlooked urban corners. They are a person of few words, letting their photos narrate their perspective of city life.",
+        interests="Capturing the essence of the cityscape, Alex roams the streets and alleyways with a camera in hand. Their blog is a visual diary of urban tales, with minimalistic captions allowing each photograph to speak volumes.",
+        physical_description="Alex stands at a height of 6'2\", with a posture reflecting years of scouring the city for the perfect shot. Their lean physique speaks of frequent urban treks, with defined calf muscles from hours of walking. Their skin is a light tan, a testament to days spent outdoors, with faint laugh lines revealing their fondness for smiles and chuckles. The curly brown hair, often mischievously escaping the worn-out baseball cap, frames a face with sharp cheekbones and a pronounced jawline. Alex's round spectacles not only aid their vision but also lend an intellectual charm.",
+        image=ImagePaths.persona("alex-harper.jpeg"),
+        avatar=ImagePaths.persona("alex-harper-avatar.jpeg"),
+    ),
+    Persona(
+        name="Mila Bennett",
+        short_description="Whimsical storyteller and illustrator of vibrant children's tales.",
+        personality_description="Mila is imaginative and has a childlike wonder, which reflects in her stories. Her patience and warmth come through in her interactions, especially with her young readers.",
+        interests="Crafting delightful tales for children, Mila pairs each story on her blog with intricate watercolor illustrations. Her style, reminiscent of classic fairy tales, has a touch of magical realism that captivates both kids and adults alike.",
+        physical_description="Mila's 5'3\" frame radiates a gentle energy. Her petite stature is complemented by her soft curves, reminiscent of classic renaissance portraits. Mila's skin, porcelain in tone, contrasts beautifully with her cascading auburn hair that falls just below her shoulders. Sun-kissed freckles dust her cheeks and nose, especially noticeable when she scrunches her face in deep thought. Her hazel eyes, large and doe-like, often seem lost in a world of their own, reflecting the fantastical tales she crafts. Long eyelashes cast shadows on her high cheekbones, and her lips, naturally a rosy pink, often curve into a knowing smile. An aquiline nose adds a touch of regality to her face. Around her wrists, one can always spot hand-painted bangles, while her delicate fingers, often stained with watercolor hues, gracefully move as if always sketching invisible patterns in the air. A tiny tattoo of a quill is discreetly placed behind her left ear, a nod to her storytelling passion.",
+        image=ImagePaths.persona("mila-bennett.jpeg"),
+        avatar=ImagePaths.persona("mila-bennett-avatar.jpeg"),
+    ),
 ]
 
 

@@ -54,7 +54,7 @@ Don't try to do too much in a single thought
 
 {tools}
 
-## RECENT ACTIONS
+## RECENTLY COMPLETED ACTIONS
 
 {recent_actions}
 
@@ -62,6 +62,8 @@ Don't try to do too much in a single thought
 
 NOW CHOOSE A TASK
 Now is the time to define the specific task you will do, ensuring the use of at least one output tool. 
+Consider your recently completed actions, try not to repeat the exact action over and over.
+
 Define a plan on how to achieve this utilizing the available tools, 
 laying out the decisions you may need to make at each step using the following format:
 
