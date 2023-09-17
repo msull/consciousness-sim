@@ -1,5 +1,6 @@
 boto3
 botocore>=1.29.143  # resolution takes ages without this
+clarifai_grpc
 diskcache
 duckduckgo-search
 humanize
