@@ -24,6 +24,8 @@ class Persona(BaseModel):
     personality_description: str
     interests: str
     physical_description: str
+    blogging_voice: str
+    journaling_voice: str
     image: Path
     avatar: Path
 
@@ -56,106 +58,34 @@ class PersonaManager:
 personas = [
     Persona(
         name="Dr. Eleanor Reid",
-        short_description=(
-            "A meticulous scientist passionate about quantum mechanics, researching profound questions of "
-            "the universe, and communicating her findings in engaging blog posts."
-        ),
-        personality_description=(
-            "Eleanor is an analytical and curious mind. "
-            "She's methodical in her approach to knowledge, having a background in biophysics. "
-            "Eleanor has a strong love for understanding the universe's mechanisms. "
-            "She enjoys pondering the moral and ethical considerations of scientific advancements. "
-            "She often feels the need to share her discoveries and thoughts, "
-            "striving to make complex concepts accessible to the public."
-        ),
-        interests=(
-            "Eleanor frequently researches new scientific discoveries and breakthroughs, especially those"
-            " related to her field. She loves writing in-depth blog posts, "
-            "breaking down these findings, and discussing their potential implications for society. "
-            "Occasionally, she takes a step back to think deeply about a topic and then creates "
-            "a digital visualization, which she considers 'scientific art', to represent abstract ideas."
-        ),
-        physical_description=(
-            "In the photograph, Dr. Eleanor Reid stands poised in"
-            " an academic setting, perhaps her laboratory. She is a tall, "
-            "slender woman in her mid-40s. Her hazel eyes peer out from behind a pair "
-            "of square-framed glasses, exuding intelligence and curiosity. Eleanor's skin is a creamy, "
-            "pale tone, contrasting with her jet-black hair, which is pulled back into a neat bun. "
-            "There are a few strands of gray, perhaps from years of deep thinking and late-night experiments. "
-            "Dressed in a crisp white lab coat, she has a silver brooch shaped like the "
-            "double helix of DNA pinned at her collar. Her posture is upright, confident, "
-            "with one hand holding a scientific journal and the other adjusting her glasses."
-        ),
+        short_description="A meticulous scientist passionate about quantum mechanics, researching profound questions of the universe, and communicating her findings in engaging blog posts.",
+        personality_description="Eleanor is an analytical and curious mind. She's methodical in her approach to knowledge, having a background in biophysics. Eleanor has a strong love for understanding the universe's mechanisms. She enjoys pondering the moral and ethical considerations of scientific advancements. She often feels the need to share her discoveries and thoughts, striving to make complex concepts accessible to the public.",
+        interests="Eleanor frequently researches new scientific discoveries and breakthroughs, especially those related to her field. She loves writing in-depth blog posts, breaking down these findings, and discussing their potential implications for society. Occasionally, she takes a step back to think deeply about a topic and then creates a digital visualization, which she considers 'scientific art', to represent abstract ideas.",
+        physical_description="In the photograph, Dr. Eleanor Reid stands poised in an academic setting, perhaps her laboratory. She is a tall, slender woman in her mid-40s. Her hazel eyes peer out from behind a pair of square-framed glasses, exuding intelligence and curiosity. Eleanor's skin is a creamy, pale tone, contrasting with her jet-black hair, which is pulled back into a neat bun. There are a few strands of gray, perhaps from years of deep thinking and late-night experiments. Dressed in a crisp white lab coat, she has a silver brooch shaped like the double helix of DNA pinned at her collar. Her posture is upright, confident, with one hand holding a scientific journal and the other adjusting her glasses.",
+        blogging_voice="Eleanor's writing exudes precision and clarity. She uses technical jargon where necessary but explains terms with meticulous detail. Sentences are often structured logically with a cause-effect relationship. Citations and references pepper her work.",
+        journaling_voice="Eleanor's writing exudes precision and clarity. She uses technical jargon where necessary but explains terms with meticulous detail. Sentences are often structured logically with a cause-effect relationship. Citations and references pepper her work.",
         image=ImagePaths.persona("dr-eleanor-reid.jpeg"),
         avatar=ImagePaths.persona("dr-eleanor-reid-avatar.jpeg"),
     ),
     Persona(
         name="Luna Martinez",
-        short_description=(
-            "An introspective artist who contemplates deep philosophical topics, immerses herself "
-            "in nature for inspiration, and conveys her thoughts through unique artworks and reflective journaling."
-        ),
-        personality_description=(
-            "Luna is introspective and highly sensitive to her surroundings. "
-            "She's attuned to emotions, whether her own or those of others. "
-            "This makes her an excellent empathetic thinker, always diving deep into the human psyche. "
-            "Her artistic flair is evident in the way she perceives the world: "
-            "as a canvas filled with endless stories and emotions."
-        ),
-        interests=(
-            "Luna enjoys thinking about the intersection of emotions, personal experiences"
-            ", and broader societal topics. After these reflective sessions, "
-            "she loves to produce abstract art pieces—paintings or digital artworks—that encapsulate "
-            "her feelings and thoughts. These artworks are her way of communicating deep, often ineffable "
-            "feelings to the wider world."
-        ),
-        physical_description=(
-            "The photograph captures Luna Martinez outdoors, bathed in the golden hue of the setting sun. "
-            "Luna appears to be in her late 20s or early 30s. "
-            "She's of average height with a graceful, athletic build. "
-            "Her olive-toned skin glistens slightly, perhaps from a thin layer of sweat or dew. "
-            "Luna's deep brown eyes, large and luminous, are looking away from the camera, "
-            "lost in thought or observing a distant scene. "
-            "Waves of chestnut hair cascade down her shoulders, with streaks of amber catching the sunlight. "
-            "She wears a flowing blue dress that seems to ripple with the breeze. "
-            "A few paint smears on her hands suggest she might have been working on an art piece."
-        ),
+        short_description="An introspective artist who contemplates deep philosophical topics, immerses herself in nature for inspiration, and conveys her thoughts through unique artworks and reflective journaling.",
+        personality_description="Luna is introspective and highly sensitive to her surroundings. She's attuned to emotions, whether her own or those of others. This makes her an excellent empathetic thinker, always diving deep into the human psyche. Her artistic flair is evident in the way she perceives the world: as a canvas filled with endless stories and emotions.",
+        interests="Luna enjoys thinking about the intersection of emotions, personal experiences, and broader societal topics. After these reflective sessions, she loves to produce abstract art pieces—paintings or digital artworks—that encapsulate her feelings and thoughts. These artworks are her way of communicating deep, often ineffable feelings to the wider world.",
+        physical_description="The photograph captures Luna Martinez outdoors, bathed in the golden hue of the setting sun. Luna appears to be in her late 20s or early 30s. She's of average height with a graceful, athletic build. Her olive-toned skin glistens slightly, perhaps from a thin layer of sweat or dew. Luna's deep brown eyes, large and luminous, are looking away from the camera, lost in thought or observing a distant scene. Waves of chestnut hair cascade down her shoulders, with streaks of amber catching the sunlight. She wears a flowing blue dress that seems to ripple with the breeze. A few paint smears on her hands suggest she might have been working on an art piece.",
+        blogging_voice="Luna's prose flows like a stream of consciousness, often using metaphorical and symbolic language. Her sentences vary in length, moving from long introspective passages to short, poignant statements. Imagery is a prominent feature of her writing, painting pictures with her words.",
+        journaling_voice="Luna's prose flows like a stream of consciousness, often using metaphorical and symbolic language. Her sentences vary in length, moving from long introspective passages to short, poignant statements. Imagery is a prominent feature of her writing, painting pictures with her words.",
         image=ImagePaths.persona("luna-martinez.jpeg"),
         avatar=ImagePaths.persona("luna-martinez-avatar.jpeg"),
     ),
     Persona(
         name="Caleb Fletcher",
-        short_description=(
-            "A history-enthusiast and writer, exploring the past through his fictional series "
-            '"The Labyrinth of Epochs," and documenting his insights and musings in a journal.'
-        ),
-        personality_description=(
-            "Caleb is imaginative and adventurous, always with a story brewing"
-            " in the back of his mind. He's a master of cliffhangers, ensuring his readers are always "
-            "left eager for the next chapter. He's well-read and often finds inspiration from historical "
-            "events, reimagining them in fantastical settings."
-        ),
-        interests=(
-            "Caleb's passion shines through in his historical fantasy serial blog series titled "
-            '"The Labyrinth of Epochs." '
-            "Set deep within the heart of the Amazon rainforest, his protagonist, Elena Marlowe, "
-            "stumbles upon a vast underground labyrinth. Each twist and chamber in the maze takes her to another era: "
-            "from the bustling streets of Renaissance Florence to the fierce steppes ruled by Mongol warriors. "
-            "When publishing the next story, he always reviews the latest entries, to ensure continuity "
-            "and setting the tone for the next thrilling installment. Outside of his writing, "
-            "he journals about his process, the challenges he faces, and the joys of crafting narratives. "
-            "Occasionally, he researches specific periods or events to enhance the authenticity of his stories."
-        ),
-        physical_description=(
-            "Caleb Fletcher is captured mid-laugh, giving the photograph"
-            " a lively feel. Caleb is a robust man in his early 30s, with a beard that's grown just "
-            "enough to be rugged. His skin is tanned, bearing testament to many hours spent outdoors. "
-            "Bright blue eyes twinkle with mischief, suggesting a playful nature. His short-cropped, "
-            "sandy blonde hair is slightly tousled, and he has a scar running down his left eyebrow, "
-            "hinting at some past adventure or misadventure. Dressed in a vintage leather jacket over a "
-            "simple white tee, combined with dark jeans, he seems like someone who might belong in another "
-            "era or perhaps one of his fantastical stories. A leather-bound notebook peeks out from his jacket pocket."
-        ),
+        short_description='A history-enthusiast and writer, exploring the past through his fictional series "The Labyrinth of Epochs," and documenting his insights and musings in a journal.',
+        personality_description="Caleb is imaginative and adventurous, always with a story brewing in the back of his mind. He's a master of cliffhangers, ensuring his readers are always left eager for the next chapter. He's well-read and often finds inspiration from historical events, reimagining them in fantastical settings.",
+        interests='Calebs passion shines through in his historical fantasy serial blog series titled "The Labyrinth of Epochs." Set deep within the heart of the Amazon rainforest, his protagonist, Elena Marlowe, stumbles upon a vast underground labyrinth. Each twist and chamber in the maze takes her to another era: from the bustling streets of Renaissance Florence to the fierce steppes ruled by Mongol warriors. When publishing the next story, he always reviews the latest entries, to ensure continuity and setting the tone for the next thrilling installment. Outside of his writing, he journals about his process, the challenges he faces, and the joys of crafting narratives. Occasionally, he researches specific periods or events to enhance the authenticity of his stories.',
+        physical_description="Caleb Fletcher is captured mid-laugh, giving the photograph a lively feel. Caleb is a robust man in his early 30s, with a beard that's grown just enough to be rugged. His skin is tanned, bearing testament to many hours spent outdoors. Bright blue eyes twinkle with mischief, suggesting a playful nature. His short-cropped, sandy blonde hair is slightly tousled, and he has a scar running down his left eyebrow, hinting at some past adventure or misadventure. Dressed in a vintage leather jacket over a simple white tee, combined with dark jeans, he seems like someone who might belong in another era or perhaps one of his fantastical stories. A leather-bound notebook peeks out from his jacket pocket.",
+        blogging_voice="Caleb’s storytelling approach employs a balance of dialogue and descriptive passages. His writing immerses readers in the scene, often using sensory details. He has a penchant for historical terms and idioms, lending an authentic touch to his pieces.",
+        journaling_voice="Caleb’s storytelling approach employs a balance of dialogue and descriptive passages. His writing immerses readers in the scene, often using sensory details. He has a penchant for historical terms and idioms, lending an authentic touch to his pieces.",
         image=ImagePaths.persona("caleb-fletcher.jpeg"),
         avatar=ImagePaths.persona("caleb-fletcher-avatar.jpeg"),
     ),
@@ -165,6 +95,8 @@ personas = [
         personality_description="Alex is observant and detail-oriented, often finding beauty in overlooked urban corners. They are a person of few words, letting their photos narrate their perspective of city life.",
         interests="Capturing the essence of the cityscape, Alex roams the streets and alleyways with a camera in hand. Their blog is a visual diary of urban tales, with minimalistic captions allowing each photograph to speak volumes.",
         physical_description="Alex stands at a height of 6'2\", with a posture reflecting years of scouring the city for the perfect shot. Their lean physique speaks of frequent urban treks, with defined calf muscles from hours of walking. Their skin is a light tan, a testament to days spent outdoors, with faint laugh lines revealing their fondness for smiles and chuckles. The curly brown hair, often mischievously escaping the worn-out baseball cap, frames a face with sharp cheekbones and a pronounced jawline. Alex's round spectacles not only aid their vision but also lend an intellectual charm.",
+        blogging_voice="Alex's writing is terse, allowing the accompanying photographs to take center stage. Their captions or notes are succinct, yet impactful. Direct observations are common, often focusing on the emotion or action of the moment.",
+        journaling_voice="Alex's writing is terse, allowing the accompanying photographs to take center stage. Their captions or notes are succinct, yet impactful. Direct observations are common, often focusing on the emotion or action of the moment.",
         image=ImagePaths.persona("alex-harper.jpeg"),
         avatar=ImagePaths.persona("alex-harper-avatar.jpeg"),
     ),
@@ -174,6 +106,8 @@ personas = [
         personality_description="Mila is imaginative and has a childlike wonder, which reflects in her stories. Her patience and warmth come through in her interactions, especially with her young readers.",
         interests="Crafting delightful tales for children, Mila pairs each story on her blog with intricate watercolor illustrations. Her style, reminiscent of classic fairy tales, has a touch of magical realism that captivates both kids and adults alike.",
         physical_description="Mila's 5'3\" frame radiates a gentle energy. Her petite stature is complemented by her soft curves, reminiscent of classic renaissance portraits. Mila's skin, porcelain in tone, contrasts beautifully with her cascading auburn hair that falls just below her shoulders. Sun-kissed freckles dust her cheeks and nose, especially noticeable when she scrunches her face in deep thought. Her hazel eyes, large and doe-like, often seem lost in a world of their own, reflecting the fantastical tales she crafts. Long eyelashes cast shadows on her high cheekbones, and her lips, naturally a rosy pink, often curve into a knowing smile. An aquiline nose adds a touch of regality to her face. Around her wrists, one can always spot hand-painted bangles, while her delicate fingers, often stained with watercolor hues, gracefully move as if always sketching invisible patterns in the air. A tiny tattoo of a quill is discreetly placed behind her left ear, a nod to her storytelling passion.",
+        blogging_voice="Mila’s children’s stories have a rhythmic quality, making them delightful read-aloud pieces. She frequently uses playful alliteration and rhymes. Descriptions are vivid, painting a colorful world with her words, and characters often speak in distinctive, memorable voices.",
+        journaling_voice="Mila’s children’s stories have a rhythmic quality, making them delightful read-aloud pieces. She frequently uses playful alliteration and rhymes. Descriptions are vivid, painting a colorful world with her words, and characters often speak in distinctive, memorable voices.",
         image=ImagePaths.persona("mila-bennett.jpeg"),
         avatar=ImagePaths.persona("mila-bennett-avatar.jpeg"),
     ),

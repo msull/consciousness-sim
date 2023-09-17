@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Optional
 import boto3
 from boto3.dynamodb.conditions import Key
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter
 
 from local_utils.helpers import date_id
 
@@ -35,6 +35,7 @@ class UpdateThoughtData(BaseModel):
     thought_complete: Optional[bool] = None
     context: Optional[str] = None
     steps_completed: Optional[int] = None
+    generated_content_ids: Optional[set[str]] = None
 
 
 class Thought(BaseModel):
@@ -54,6 +55,8 @@ class Thought(BaseModel):
     # plan execution
     steps_completed: int = 0
     context: str = ""
+    last_full_response: str = ""
+    generated_content_ids: set[str] = Field(default_factory=set)
 
     created_at: datetime
     updated_at: datetime

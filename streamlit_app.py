@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
@@ -12,12 +13,20 @@ from pydantic import Field
 from wordcloud import STOPWORDS, WordCloud
 
 from local_utils import ui_lib as ui
-from local_utils.brainv2 import ActionCallback, ArtworkDoesNotExist, BlogEntry, BrainV2, GeneratedArt, JournalEntry
+from local_utils.brainv2 import (
+    ActionCallback,
+    ArtworkDoesNotExist,
+    BlogEntry,
+    BrainV2,
+    JournalEntry,
+    PieceOfArt,
+    SocialPost,
+)
 from local_utils.session_data import BaseSessionData
 from local_utils.v2.personas import Persona
 from local_utils.v2.thoughts import Thought
 
-st.set_page_config("Conciousness Simulator", initial_sidebar_state="collapsed", layout="wide")
+st.set_page_config("Conciousness Simulator", initial_sidebar_state="collapsed")
 
 
 class SessionData(BaseSessionData):
@@ -61,6 +70,11 @@ def main(session: SessionData):
             """  # noqa: E501
 
             intro = dedent(intro)
+
+            if session.thought:
+                for x in range(session.thought.steps_completed + 1):
+                    st.empty()
+
             container = st.container()
             if not (session.initialize_new_thought or session.thought_id):
                 with container:
@@ -130,6 +144,18 @@ def render_active_thought(brain: BrainV2, session: SessionData):
                     _display_thought(thought)
                 thought_status.update(label="Decided upon a task")
                 st.code(ui.dump_model(thought.plan))
+            if thought.generated_content_ids:
+                ids = sorted(
+                    [x for x in thought.generated_content_ids],
+                    key=lambda x: x.split(":", maxsplit=1)[1],
+                )
+                st.subheader("Content Produced")
+                for this_id in ids:
+                    content = brain.output_memory.read_content_with_type(this_id)
+                    with st.expander(content.get_label()):
+                        st.write(content.format())
+                        if isinstance(content, PieceOfArt):
+                            st.image(brain.output_memory.read_art_contents(content))
 
     with chat_col:
         steps_completed = thought.steps_completed
@@ -173,13 +199,13 @@ def render_active_thought(brain: BrainV2, session: SessionData):
             step_num = idx + 1
             if step_num > steps_completed:
                 # step not completed yet
-                st.write(f"{step_num}. {step.purpose}")
+                st.write(f"{step_num}. {step.tool_name}: {step.purpose}")
                 if active_step_placeholder is None:
                     # placeholder where work will occur
                     current_task = f"Performing action - {step.tool_name}"
                     active_step_placeholder = st.empty()
             else:
-                st.write(f"{step_num}. ~{step.purpose}~")
+                st.write(f"{step_num}. ~{step.tool_name}: {step.purpose}~")
 
     if session.continue_thought:
         session.continue_thought = False
@@ -271,43 +297,78 @@ def render_load_prior_thought_selection(brain: BrainV2, persona: Persona, sessio
 
 
 def render_ai_output(brain: BrainV2):
-    media_types = st.multiselect("Filter Media Types", ("Art", "Journal Entries", "Blog Posts"))
+    media_types = st.multiselect("Filter Media Types", ("Art", "Journal Entries", "Social Posts", "Blog Posts"))
     persona_name = st.selectbox("Filter Persona", [""] + brain.personas.list_persona_names()) or None
 
     if not media_types:
         get_art = True
         get_journal = True
         get_blog = True
+        get_social = True
     else:
         get_art = "Art" in media_types
         get_journal = "Journal Entries" in media_types
         get_blog = "Blog Posts" in media_types
+        get_social = "Social Posts" in media_types
 
     output_entries = []
     if get_art:
-        output_entries.extend(brain.goal_memory.get_latest_art_pieces(persona_name, num=10))
+        output_entries.extend(brain.output_memory.get_latest_art_pieces(persona_name, num=10))
     if get_journal:
-        output_entries.extend(brain.goal_memory.get_latest_journal_entries(persona_name, num=10))
+        output_entries.extend(brain.output_memory.get_latest_journal_entries(persona_name, num=10))
     if get_blog:
-        output_entries.extend(brain.goal_memory.get_latest_blog_entries(persona_name, num=10))
+        output_entries.extend(brain.output_memory.get_latest_blog_entries(persona_name, num=10))
+    if get_social:
+        output_entries.extend(brain.output_memory.get_latest_social_posts(persona_name, num=10))
 
     sorted_entries = sorted(output_entries, key=lambda x: x.date_added, reverse=True)
     for entry in sorted_entries:
         match entry:
             case JournalEntry():
                 render_ai_output_journal(brain, entry)
-            case GeneratedArt():
+            case PieceOfArt():
                 render_ai_output_art(brain, entry)
             case BlogEntry():
                 render_ai_output_blog(brain, entry)
+            case SocialPost():
+                render_ai_output_social(brain, entry)
             case _:
                 st.error("UNHANDLED OUTPUT ENTRY")
 
 
-def render_ai_output_art(brain: BrainV2, art: GeneratedArt):
+def render_ai_output_blog(brain: BrainV2, entry: BlogEntry):
+    persona = brain.personas.get_persona_by_name(entry.persona_name)
+    with st.chat_message("ai", avatar=str(persona.avatar)):
+        st.write(f"**{persona.name} published a new blog post!**")
+        date_as_pacific = entry.date_added.replace(tzinfo=tzutc()).astimezone(ZoneInfo("US/Pacific"))
+        st.write(date_as_pacific.strftime("%d %b %Y %l:%M %p"))
+    with st.expander(f"View blog post: **{entry.title}**"):
+        if st.toggle("View Raw", key=entry.title):
+            st.code(entry.format())
+        else:
+            st.subheader(entry.title)
+            st.caption(f"Written by: {entry.persona_name}")
+            st.caption("ALL CONTENT GENERATED BY AI")
+
+            chunks = split_on_images(entry.content)
+            for idx, chunk in enumerate(chunks):
+                st.write(chunk)
+                if entry.generated_art and idx + 1 <= len(entry.generated_art):
+                    st.image(brain.output_memory.read_art_contents(entry.generated_art[idx]))
+
+            # output and remaining images
+            if entry.generated_art and idx + 1 < len(entry.generated_art):
+                for art in entry.generated_art[idx:]:
+                    st.image(brain.output_memory.read_art_contents(art))
+            # st.write(entry.format())
+    st.caption("All content generated by AI")
+    st.divider()
+
+
+def render_ai_output_art(brain: BrainV2, art: PieceOfArt):
     persona = brain.personas.get_persona_by_name(art.persona_name)
     try:
-        art_contents = brain.goal_memory.read_art_contents(art)
+        art_contents = brain.output_memory.read_art_contents(art)
     except ArtworkDoesNotExist:
         art_contents = None
 
@@ -317,7 +378,6 @@ def render_ai_output_art(brain: BrainV2, art: GeneratedArt):
         st.write(date_as_pacific.strftime("%d %b %Y %l:%M %p"))
         if art_contents:
             st.image(art_contents, width=150)
-            st.caption("Image generated by stable-diffusion-xl from GPT-4 description")
 
     with st.expander(f"View generated art: **{art.title}**"):
         c1, c2 = st.columns((1, 2))
@@ -328,9 +388,9 @@ def render_ai_output_art(brain: BrainV2, art: GeneratedArt):
             st.write(f"**{art.title}**")
             if art_contents:
                 st.image(art_contents)
-                st.caption("Image generated by stable-diffusion-xl from GPT-4 description")
             else:
                 st.write("Artwork not yet rendered")
+    st.caption("All content generated by AI")
     st.divider()
 
 
@@ -342,17 +402,21 @@ def render_ai_output_journal(brain: BrainV2, entry: JournalEntry):
         st.write(date_as_pacific.strftime("%d %b %Y %l:%M %p"))
     with st.expander("View journal entry"):
         st.write(entry.content)
+    st.caption("All content generated by AI")
     st.divider()
 
 
-def render_ai_output_blog(brain: BrainV2, entry: BlogEntry):
+def render_ai_output_social(brain: BrainV2, entry: SocialPost):
     persona = brain.personas.get_persona_by_name(entry.persona_name)
     with st.chat_message("ai", avatar=str(persona.avatar)):
-        st.write(f"**{persona.name} published a new blog post!**")
+        st.write(f"**{persona.name} posted on social media!**")
         date_as_pacific = entry.date_added.replace(tzinfo=tzutc()).astimezone(ZoneInfo("US/Pacific"))
         st.write(date_as_pacific.strftime("%d %b %Y %l:%M %p"))
-    with st.expander(f"View blog post: **{entry.title}**"):
-        st.write(entry.format())
+    st.write(entry.content)
+    if entry.generated_art:
+        st.image(brain.output_memory.read_art_contents(entry.generated_art))
+
+    st.caption("All content generated by AI")
     st.divider()
 
 
@@ -366,10 +430,15 @@ def render_recent_thoughts(brain: BrainV2):
         "View thoughts for Persona", ["blend thoughts from all"] + brain.personas.list_persona_names()
     )
     if persona_name == "blend thoughts from all":
-        persona_name = None
+        st.info("Produces a wordcloud using the 3 latest journal entries from each persona")
+        persona_names = brain.personas.list_persona_names()
+    else:
+        st.info(f"Produces a wordcloud using the 3 latest journal entries from {persona_name}")
+        persona_names = [persona_name]
 
-    for entry in brain.goal_memory.get_latest_journal_entries(num=10, persona_name=persona_name):
-        text.append(entry.content)
+    for persona_name in persona_names:
+        for entry in brain.output_memory.get_latest_journal_entries(num=3, persona_name=persona_name):
+            text.append(entry.content)
 
     stopwords = set(STOPWORDS)
     stopwords.add("article")
@@ -393,6 +462,31 @@ def render_recent_thoughts(brain: BrainV2):
         st.image(wordcloud)
     else:
         st.write("No recent thoughts")
+
+
+def split_on_images(content_str):
+    # The regex you provided
+    regex = r"^!\[.*?\]\(.*?\)$"
+
+    # This splits the content based on image identifiers. We're using the re.split function.
+    # The re.MULTILINE flag allows the start-of-line (^) and end-of-line ($) to match each line of the input string.
+    chunks = re.split(regex, content_str, flags=re.MULTILINE)
+
+    # Remove any empty strings from the chunks
+    chunks = [chunk for chunk in chunks if chunk.strip() != ""]
+
+    return chunks
+
+
+def extract_image_titles(content_str):
+    # This regex is to capture the titles inside the image identifiers
+    regex = r"^!\[(.*?)\]\(.*?\)$"
+
+    # The re.findall function finds all matches of the regex in the string.
+    # The re.MULTILINE flag is used again to match each line of the input string.
+    titles = re.findall(regex, content_str, flags=re.MULTILINE)
+
+    return titles
 
 
 if __name__ == "__main__":

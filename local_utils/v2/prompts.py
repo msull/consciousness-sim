@@ -1,9 +1,10 @@
 # ruff: noqa: E501
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
+    from local_utils.brainv2 import PieceOfArt
     from local_utils.v2.personas import Persona
     from local_utils.v2.thoughts import PlanStep, Thought
 
@@ -13,6 +14,7 @@ class ToolNames(str, Enum):
     WriteInJournal = "WriteInJournal"
     ReadFromJournal = "ReadFromJournal"
     WriteBlogPost = "WriteBlogPost"
+    PostOnSocial = "PostOnSocial"
     ReadLatestBlogs = "ReadLatestBlogs"
     QueryForInfo = "QueryForInfo"
 
@@ -28,8 +30,10 @@ CreateArt - Generate a piece of art -- you can use this to photograph things,
 WriteInJournal - Record information in a journal; use this whenever you need a step to "Think" about something, 
     for example after QueryForInfo you could journal and then create a piece of art or take a photograph.
 
-WriteBlogPost - Write a new blog post using text any art you have created; ensure you are ready to publish before
-    using this action, as there is no editing or drafts.
+PostOnSocial - Send a short message out to the social media sphere. If you use this immediately after using CreateArt,
+    an image of the art will be included in the post.
+
+WriteBlogPost - Write a long format blog post; ensure you are ready to publish before using this action, as there is no editing or drafts.
 
 QueryForInfo - your main interface for asking questions / learning things, you can query for any piece 
     of information and receive a response; information learned in this manner is the only thing you can utilize 
@@ -48,7 +52,7 @@ It is important to choose a task that is in-line with your persona and that can 
 You can build upon a previous task, for example if you have previously created a piece of Art you could choose 
 to write a blog post about it. 
 
-Don't try to do too much in a single thought
+Don't try to do too much in a single thought, ideally keep it to 6 or fewer steps.
 
 ## AVAILABLE TOOLS
 
@@ -303,12 +307,12 @@ Your job now is to create art!
 
 You create art by providing a detailed description of the piece-- taking into account your personality, 
 context window, and purpose. You can create artwork of nearly any type, be it a painting, 
-photograph, statue, computer program, or anything else. The more detailed the description
-the better. Avoid mentioning most proper nouns, rather describe what can be seen.
+photograph, statue, computer program, or anything else. Avoid mentioning most proper nouns, 
+rather describe what can be seen, and limit the output to a single paragraph.
 
 DO NOT NAME THE ARTWORK NOW, YOU WILL NAME IT AT A LATER TIME. 
 
-DO NOT OUTPUT MORE THAN 1 PARAGRAPH.
+DO NOT OUTPUT MORE THAN ONE PARAGRAPH.
 
 OUTPUT THE DESCRIPTION OF THE NEW ARTWORK NOW. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE DESCRIPTION.
 
@@ -427,9 +431,12 @@ You are ready to create a new blog entry. You've just come up with a title:
 
 "{blog_title}"
 
+Your writing style:
+{writing_style}
+
 To create the blog post, simply output the markdown contents of the post.
 
-ANY ARTWORK YOU HAVE CREATED WILL BE AUTOMATICALLY INCLUDED -- DO NOT TRY TO INCLUDE THE IMAGES.
+{include_artwork}
 
 DO NOT INCLUDE THE TITLE OF THE BLOG POST, OR A BYLINE -- THESE WILL BE ADDED AS WELL.
 
@@ -437,7 +444,17 @@ OUTPUT THE CONTENT OF THE BLOG POST. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER TH
 """
 
 
-def write_blog_entry(thought: "Thought", persona: "Persona", current_task: "PlanStep", blog_title: str) -> str:
+def write_blog_entry(
+    thought: "Thought",
+    persona: "Persona",
+    current_task: "PlanStep",
+    blog_title: str,
+    generated_artwork: list["PieceOfArt"],
+) -> str:
+    assert current_task in thought.plan
+    include_artwork = ""
+    _ = generated_artwork
+
     return WRITE_BLOG_ENTRY.format(
         now=datetime.utcnow().isoformat(),
         persona=persona.format(include_physical=True),
@@ -445,4 +462,54 @@ def write_blog_entry(thought: "Thought", persona: "Persona", current_task: "Plan
         current_action=current_task.format(),
         current_context=thought.context,
         blog_title=blog_title,
+        writing_style=persona.blogging_voice,
+        include_artwork=include_artwork,
+    )
+
+
+POST_ON_SOCIAL = """
+# SETUP
+
+Today's date is: {now}
+
+You are acting as the following persona:
+
+{persona}
+
+You are currently working to accomplish the following task:
+
+{task_plan}
+
+You are currently performing this action: "{current_action}"
+
+## CURRENT CONTEXT WINDOW
+
+{current_context}
+
+# JOB
+
+You are ready to create a social media post -- this is a short message, generally a single sentence.
+If you've just finished creating a piece of art, it will be included in your post.
+
+Your writing style:
+{writing_style}
+
+Your job now is to simply output the contents of the social media post.
+
+OUTPUT THE CONTENT OF THE POST. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE POST CONTENTS.
+"""
+
+
+def post_on_social(
+    thought: "Thought", persona: "Persona", current_task: "PlanStep", linked_art: Optional["PieceOfArt"] = None
+) -> str:
+    _ = linked_art
+
+    return POST_ON_SOCIAL.format(
+        now=datetime.utcnow().isoformat(),
+        persona=persona.format(include_physical=True),
+        task_plan=thought.it_rationale,
+        current_action=current_task.format(),
+        current_context=thought.context,
+        writing_style=persona.blogging_voice,
     )

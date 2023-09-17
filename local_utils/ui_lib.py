@@ -7,7 +7,7 @@ from logzero import logger
 from pydantic import BaseModel, TypeAdapter
 from pydantic.v1 import BaseSettings
 
-from local_utils.brainv2 import BrainV2, GoalMemoryInterface, MappingMemory
+from local_utils.brainv2 import BrainV2, MappingMemory, OutputMemoryInterface
 from local_utils.session_data import BaseSessionData
 from local_utils.settings import StreamlitAppSettings
 from local_utils.v2.personas import load_default_personas
@@ -25,7 +25,7 @@ def setup_thought_memory() -> ThoughtMemory:
 
 
 @st.cache_resource
-def setup_goal_memory() -> GoalMemoryInterface:
+def setup_output_memory() -> OutputMemoryInterface:
     settings = StreamlitAppSettings.load()
     art_storage = settings.app_data / "art_storage"
     art_storage.mkdir(parents=True, exist_ok=True)
@@ -35,7 +35,7 @@ def setup_goal_memory() -> GoalMemoryInterface:
 def setup_brain() -> BrainV2:
     return BrainV2(
         logger=logger,
-        goal_memory=setup_goal_memory(),
+        output_memory=setup_output_memory(),
         thought_memory=setup_thought_memory(),
         personas=load_default_personas(),
     )
