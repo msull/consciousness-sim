@@ -29,7 +29,12 @@ def setup_output_memory() -> OutputMemoryInterface:
     settings = StreamlitAppSettings.load()
     art_storage = settings.app_data / "art_storage"
     art_storage.mkdir(parents=True, exist_ok=True)
-    return MappingMemory(memory=Index(str(settings.app_data / "memory")), art_storage=art_storage)
+    return MappingMemory(
+        memory=Index(str(settings.app_data / "memory")),
+        bucket_name=settings.s3_data_bucket,
+        web_url=settings.s3_web_address,
+        prefix="images",
+    )
 
 
 def setup_brain() -> BrainV2:

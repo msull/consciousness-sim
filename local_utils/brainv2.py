@@ -7,8 +7,9 @@ from hashlib import md5
 from logging import Logger
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Callable, Optional, Type, TypeVar
 
+import boto3
 from pydantic import BaseModel, TypeAdapter
 
 from .v2 import prompts
@@ -17,11 +18,17 @@ from .v2.image_gen import generate_image
 from .v2.personas import Persona, PersonaManager
 from .v2.thoughts import NewThoughtData, PlanStep, Thought, ThoughtMemory, UpdateThoughtData
 
+if TYPE_CHECKING:
+    from mypy_boto3_s3.client import S3Client
+
 
 class BaseAiContent(BaseModel, ABC):
     persona_name: str
     date_added: datetime
     thought_id: str
+
+    def get_persona_slug(self) -> str:
+        return self.persona_name.replace(".", "").replace(" ", "-").lower()
 
     def ai_content(self) -> str:
         """This method to return all AI generated content as a single string, for hashing.
@@ -202,6 +209,10 @@ class OutputMemoryInterface(ABC):
         pass
 
     @abstractmethod
+    def get_art_content_location(self, art: PieceOfArt) -> str:
+        pass
+
+    @abstractmethod
     def get_latest_art_pieces(self, persona_name: Optional[str] = None, num: int = 3) -> list[PieceOfArt]:
         pass
 
@@ -241,8 +252,62 @@ class OutputMemoryInterface(ABC):
     #     pass
 
 
+@dataclass
+class LocalArtContents(OutputMemoryInterface, ABC):
+    art_storage: Path
+
+    def write_art_contents(self, art: PieceOfArt, contents: bytes):
+        artwork_path = self.art_storage / art.persona_name / art.get_file_name()
+        artwork_path.parent.mkdir(parents=True, exist_ok=True)
+        if artwork_path.exists():
+            raise RuntimeError("Artwork already exists")
+        artwork_path.write_bytes(contents)
+
+    def read_art_contents(self, art: PieceOfArt) -> bytes:
+        artwork_path = self.art_storage / art.persona_name / art.get_file_name()
+        if not artwork_path.exists():
+            raise ArtworkDoesNotExist("Artwork contents file does not exist")
+        return artwork_path.read_bytes()
+
+    def get_art_content_location(self, art: PieceOfArt) -> str:
+        artwork_path = self.art_storage / art.persona_name / art.get_file_name()
+        return str(artwork_path.absolute())
+
+
+@dataclass
+class S3ArtContents(OutputMemoryInterface, ABC):
+    # art_storage: Path
+    bucket_name: str
+    web_url: str
+    prefix: str = "images"
+
+    _s3_client: Optional["S3Client"] = field(default=None, init=False)
+
+    @property
+    def s3_client(self) -> "S3Client":
+        if not self._s3_client:
+            self._s3_client = boto3.client("s3")
+        return self._s3_client
+
+    def write_art_contents(self, art: PieceOfArt, contents: bytes):
+        artwork_path = "/".join([self.prefix, art.get_persona_slug(), art.get_file_name()])
+        # raise RuntimeError("Artwork already exists")
+        self.s3_client.put_object(Body=contents, Bucket=self.bucket_name, Key=artwork_path)
+
+    def read_art_contents(self, art: PieceOfArt) -> bytes:
+        artwork_path = "/".join([self.prefix, art.get_persona_slug(), art.get_file_name()])
+        response = self.s3_client.get_object(Bucket=self.bucket_name, Key=artwork_path)
+        # raise ArtworkDoesNotExist("Artwork contents file does not exist")
+        byte_stream = response["Body"].read()
+        return byte_stream
+
+    def get_art_content_location(self, art: PieceOfArt) -> str:
+        artwork_path = "/".join([self.prefix, art.get_persona_slug(), art.get_file_name()])
+        return f"{self.web_url}/{artwork_path}"
+
+
 @dataclass()
-class MappingMemory(OutputMemoryInterface):
+class MappingMemory(S3ArtContents, OutputMemoryInterface):
     def _find_by_content_id(self, content_id, memory_key, model_class: Type[_T]) -> Optional[_T]:
         all_content = (model_class.model_validate(x) for x in self.memory.get(memory_key) or [])
         return next((x for x in all_content if x.get_content_id() == content_id), None)
@@ -259,7 +324,6 @@ class MappingMemory(OutputMemoryInterface):
     def get_piece_of_art(self, content_id: str) -> Optional[PieceOfArt]:
         return self._find_by_content_id(content_id, "art_storage", PieceOfArt)
 
-    art_storage: Path
     memory: MutableMapping[str, dict | list[dict]] = field(default_factory=dict)
 
     def write_social_post(
@@ -303,19 +367,6 @@ class MappingMemory(OutputMemoryInterface):
         self.memory["art_storage"] = art_storage
 
         return entry
-
-    def write_art_contents(self, art: PieceOfArt, contents: bytes):
-        artwork_path = self.art_storage / art.persona_name / art.get_file_name()
-        artwork_path.parent.mkdir(parents=True, exist_ok=True)
-        if artwork_path.exists():
-            raise RuntimeError("Artwork already exists")
-        artwork_path.write_bytes(contents)
-
-    def read_art_contents(self, art: PieceOfArt) -> bytes:
-        artwork_path = self.art_storage / art.persona_name / art.get_file_name()
-        if not artwork_path.exists():
-            raise ArtworkDoesNotExist("Artwork contents file does not exist")
-        return artwork_path.read_bytes()
 
     def get_latest_art_pieces(self, persona_name: Optional[str] = None, num: int = 5) -> list[PieceOfArt]:
         art_storage = self.memory.get("art_storage") or []

@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  ai-sim-infra
+
+  Sample SAM Template for ai-sim-infra
+
+Resources:
+  DynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: gsi1
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: pk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: gsirev
+          KeySchema:
+            - AttributeName: sk
+              KeyType: HASH
+            - AttributeName: pk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+  MyAppUser:
+    Type: "AWS::IAM::User"
+    Properties:
+      Path: /bot/
+      UserName: !Ref AWS::StackName
+
+  MyAppUserCredentials:
+    Type: "AWS::IAM::AccessKey"
+    Properties:
+      UserName: !Ref MyAppUser
+
+
+  MyAppUserCredentialsSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub /bot/credentials/${AWS::StackName}
+      SecretString: !Sub '{"ACCESS_KEY":"${MyAppUserCredentials}","SECRET_KEY":"${MyAppUserCredentials.SecretAccessKey}"}'
+
+
+  MyAppUserPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "MyAppUserPolicy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "s3:ListBucket"
+              - "s3:GetObject"
+              - "s3:PutObject"
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}
+              - !Sub arn:aws:s3:::${S3Bucket}/*
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:Query
+              - dynamodb:Scan
+            Resource:
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoTable}'
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoTable}/index/*'
+      Users:
+        - !Ref MyAppUser
+Outputs:
+  WebsiteURL:
+    Value: !GetAtt
+      - S3Bucket
+      - WebsiteURL
+    Description: URL for website hosted on S3
+  S3BucketSecureURL:
+    Value: !Join
+      - ''
+      - - 'https://'
+        - !GetAtt
+          - S3Bucket
+          - DomainName
+    Description: Name of S3 bucket to hold website content
+
+  DynamoDBTableName:
+    Value: !Ref DynamoTable
+    Description: Name of the DynamoDB table
+
+  S3BucketName:
+    Value: !Ref S3Bucket
+    Description: Name of the S3 bucket

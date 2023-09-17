@@ -11,6 +11,8 @@ class StreamlitAppSettings(BaseModel):
     session_data: Path = Field(default_factory=lambda: Path(st.secrets["SESSION_DIR"]))
 
     dynamodb_thoughts_table: str = Field(default_factory=lambda: st.secrets["DYNAMODB_THOUGHTS_TABLE"])
+    s3_data_bucket: str = Field(default_factory=lambda: st.secrets["S3_DATA_BUCKET"])
+    s3_web_address: str = Field(default_factory=lambda: st.secrets["S3_WEB_ADDRESS"])
 
     @field_validator("openai_api_key", mode="before")
     @classmethod
