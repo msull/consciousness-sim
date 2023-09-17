@@ -1,3 +1,4 @@
+import gzip
 import json
 from abc import ABC, abstractmethod
 from collections.abc import MutableMapping
@@ -10,15 +11,18 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Callable, Optional, Type, TypeVar
 
 import boto3
+from boto3.dynamodb.conditions import Key
 from pydantic import BaseModel, TypeAdapter
 
 from .v2 import prompts
 from .v2.chat_completion import get_completion
 from .v2.image_gen import generate_image
 from .v2.personas import Persona, PersonaManager
-from .v2.thoughts import NewThoughtData, PlanStep, Thought, ThoughtMemory, UpdateThoughtData
+from .v2.thoughts import NewThoughtData, PlanStep, Thought, ThoughtMemory, UpdateThoughtData, marshall
 
 if TYPE_CHECKING:
+    from mypy_boto3_dynamodb.client import DynamoDBClient
+    from mypy_boto3_dynamodb.service_resource import Table
     from mypy_boto3_s3.client import S3Client
 
 
@@ -306,8 +310,189 @@ class S3ArtContents(OutputMemoryInterface, ABC):
         return f"{self.web_url}/{artwork_path}"
 
 
-@dataclass()
-class MappingMemory(S3ArtContents, OutputMemoryInterface):
+@dataclass
+class DynamoDbMemoryEntries(OutputMemoryInterface, ABC):
+    table_name: str
+    persona_manager: PersonaManager
+    _dynamodb_client: Optional["DynamoDBClient"] = field(default=None, init=False)
+    _dynamodb_table: Optional["Table"] = field(default=None, init=False)
+
+    @property
+    def dynamodb_client(self) -> "DynamoDBClient":
+        if not self._dynamodb_client:
+            self._dynamodb_client = boto3.client("dynamodb")
+        return self._dynamodb_client
+
+    @property
+    def dynamodb_table(self) -> "Table":
+        if not self._dynamodb_table:
+            dynamodb = boto3.resource("dynamodb")
+            self._dynamodb_table = dynamodb.Table(self.table_name)
+        return self._dynamodb_table
+
+    def _query_to_thoughts(self, index: str, key_condition, limit: int = 25, ascending: bool = True) -> list[Thought]:
+        data = self.dynamodb_table.query(
+            IndexName=index, KeyConditionExpression=key_condition, Limit=limit, ScanIndexForward=ascending
+        )
+        ta = TypeAdapter(list[Thought])
+        return ta.validate_python(data["Items"])
+
+    def list_incomplete_thoughts(self) -> list[Thought]:
+        return self._query_to_thoughts(
+            index="gsi1", key_condition=Key("gsi1pk").eq("t|INCOMPLETE"), ascending=False, limit=100
+        )
+
+    def list_recently_completed_thoughts(self, num_results=5) -> list[Thought]:
+        return self._query_to_thoughts(
+            index="gsi1", key_condition=Key("gsi1pk").eq("t|COMPLETE"), ascending=False, limit=num_results
+        )
+
+    def list_recent_thoughts(self, num_results=5) -> list[Thought]:
+        return self._query_to_thoughts(
+            index="gsirev", key_condition=Key("sk").eq("t|v0"), ascending=False, limit=num_results
+        )
+
+    def _to_dynamodb_item(self, ai_content: _T) -> dict:
+        persona_name = ai_content.get_persona_slug()
+        content_type = ai_content.__class__.__name__
+
+        output: bytes = gzip.compress(ai_content.model_dump_json().encode())
+        dynamodb_data = {
+            "pk": f"aic|{ai_content.get_content_id()}",
+            "sk": content_type,
+            "gsi1pk": f"{content_type}##{persona_name}",
+            "data": output,
+        }
+        return dynamodb_data
+
+    def _from_dynamodb_item(self, dynamodb_data: dict) -> _T:
+        content_type = dynamodb_data["sk"]
+        entry_data: str = gzip.decompress(dynamodb_data["data"].value).decode()
+        match content_type:
+            case "SocialPost":
+                model_cls = SocialPost
+            case "JournalEntry":
+                model_cls = JournalEntry
+            case "BlogEntry":
+                model_cls = BlogEntry
+            case "PieceOfArt":
+                model_cls = PieceOfArt
+            case _:
+                raise ValueError(f"Unhandled match value {content_type=}")
+        return model_cls.model_validate_json(entry_data)
+
+    def _save_new(self, ai_content: _T):
+        dynamodb_item = self._to_dynamodb_item(ai_content)
+        self.dynamodb_client.put_item(
+            TableName=self.table_name,
+            Item=marshall(dynamodb_item),
+            ConditionExpression="attribute_not_exists(pk) and attribute_not_exists(sk)",
+        )
+
+    def _get_by_content_id(self, content_id, model_class: Type[_T]) -> Optional[_T]:
+        response = self.dynamodb_table.get_item(Key={"pk": "aic|" + content_id, "sk": model_class.__name__})
+        item = response.get("Item")
+        if not item:
+            raise ValueError("No item found with the provided key.")
+        return self._from_dynamodb_item(item)
+
+    def _query_latest_creations(
+        self, content_type: Type[_T], persona_name: Optional[str] = None, ascending=False, limit: int = 10
+    ) -> list[_T]:
+        if persona_name:
+            persona_slug = self.persona_manager.get_persona_by_name(persona_name).get_persona_slug()
+            index = "gsi1"
+            key = f"{content_type.__name__}#{persona_slug}"
+            key_condition = Key("gsi1pk").eq(key)
+        else:
+            index = "gsirev"
+            key_condition = Key("sk").eq(content_type.__name__)
+
+        data = self.dynamodb_table.query(
+            IndexName=index, KeyConditionExpression=key_condition, Limit=limit, ScanIndexForward=ascending
+        )
+        return [self._from_dynamodb_item(x) for x in data["Items"]]
+
+    ###### Abstract Methods Follow
+    def get_social_post(self, content_id: str) -> Optional[SocialPost]:
+        return self._get_by_content_id(content_id, SocialPost)
+
+    def get_journal_entry(self, content_id: str) -> Optional[JournalEntry]:
+        return self._get_by_content_id(content_id, JournalEntry)
+
+    def get_blog_entry(self, content_id: str) -> Optional[BlogEntry]:
+        return self._get_by_content_id(content_id, BlogEntry)
+
+    def get_piece_of_art(self, content_id: str) -> Optional[PieceOfArt]:
+        return self._get_by_content_id(content_id, PieceOfArt)
+
+    def write_social_post(
+        self, persona_name: str, content: str, thought_id: str, art: Optional[PieceOfArt] = None
+    ) -> SocialPost:
+        entry = SocialPost(
+            persona_name=persona_name,
+            content=content,
+            generated_art=art,
+            date_added=datetime.utcnow(),
+            thought_id=thought_id,
+        )
+        self._save_new(entry)
+        return entry
+
+    def get_latest_social_posts(self, persona_name: Optional[str] = None, num: int = 5) -> list[SocialPost]:
+        return self._query_latest_creations(SocialPost, persona_name, limit=num)
+
+    def write_art_piece(self, persona_name: str, title: str, art_descr: str, thought_id: str) -> PieceOfArt:
+        entry = PieceOfArt(
+            persona_name=persona_name,
+            title=title,
+            art_descr=art_descr,
+            date_added=datetime.utcnow(),
+            thought_id=thought_id,
+        )
+        self._save_new(entry)
+        return entry
+
+    def get_latest_art_pieces(self, persona_name: Optional[str] = None, num: int = 3) -> list[PieceOfArt]:
+        return self._query_latest_creations(PieceOfArt, persona_name, limit=num)
+
+    def write_journal_entry(self, persona_name: str, content: str, thought_id: str) -> JournalEntry:
+        entry = JournalEntry(
+            persona_name=persona_name, content=content, date_added=datetime.utcnow(), thought_id=thought_id
+        )
+        self._save_new(entry)
+        return entry
+
+    def get_latest_journal_entries(self, persona_name: Optional[str] = None, num: int = 3) -> list[JournalEntry]:
+        return self._query_latest_creations(JournalEntry, persona_name, limit=num)
+
+    def write_blog_entry(
+        self,
+        persona_name: str,
+        title: str,
+        content: str,
+        thought_id: str,
+        linked_art: Optional[list[PieceOfArt]] = None,
+    ) -> BlogEntry:
+        entry = BlogEntry(
+            persona_name=persona_name,
+            title=title,
+            content=content,
+            date_added=datetime.utcnow(),
+            thought_id=thought_id,
+            generated_art=linked_art,
+        )
+        self._save_new(entry)
+        return entry
+
+    def get_latest_blog_entries(self, persona_name: Optional[str] = None, num: int = 3) -> list[BlogEntry]:
+        return self._query_latest_creations(BlogEntry, persona_name, limit=num)
+
+
+@dataclass
+class LocalMemoryEntries(OutputMemoryInterface, ABC):
+    memory: MutableMapping[str, dict | list[dict]] = field(default_factory=dict)
+
     def _find_by_content_id(self, content_id, memory_key, model_class: Type[_T]) -> Optional[_T]:
         all_content = (model_class.model_validate(x) for x in self.memory.get(memory_key) or [])
         return next((x for x in all_content if x.get_content_id() == content_id), None)
@@ -323,8 +508,6 @@ class MappingMemory(S3ArtContents, OutputMemoryInterface):
 
     def get_piece_of_art(self, content_id: str) -> Optional[PieceOfArt]:
         return self._find_by_content_id(content_id, "art_storage", PieceOfArt)
-
-    memory: MutableMapping[str, dict | list[dict]] = field(default_factory=dict)
 
     def write_social_post(
         self, persona_name: str, content: str, thought_id: str, art: Optional[PieceOfArt] = None
@@ -435,41 +618,10 @@ class MappingMemory(S3ArtContents, OutputMemoryInterface):
                 break
         return return_entries
 
-    # def list_goals(self, include_completed=False) -> list[Goal]:
-    #     return sorted(
-    #         [x for x in self.memory.values() if include_completed or not x.completed_at],
-    #         key=lambda x: x.added_at,
-    #     )
-    #
-    # def save_new_goal(self, new_goal: CreateNewGoal) -> Goal:
-    #     goal = Goal(
-    #         text=new_goal.text,
-    #         rationale=new_goal.rationale,
-    #         added_at=datetime.utcnow(),
-    #         completed_at=None,
-    #         goal_progress=[],
-    #     )
-    #     assert goal.goal_id not in self.memory
-    #     self.memory[goal.goal_id] = goal
-    #     return goal
-    #
-    # def get_goal(self, goal_id: str) -> Optional[Goal]:
-    #     return self.memory.get(goal_id)
-    #
-    # def add_progress_note_to_goal(self, goal_id: str, note: str, goal_complete: bool) -> Goal:
-    #     goal = self.get_goal(goal_id)
-    #     if not goal:
-    #         raise ValueError(f"Goal not found {goal_id=}")
-    #     if goal.completed_at:
-    #         raise RuntimeError("Cannot update already completed goal")
-    #     now = datetime.utcnow()
-    #     goal.goal_progress.append(GoalProgress(note=note, added_at=now))
-    #     if goal_complete:
-    #         goal.completed_at = now
-    #
-    #     self.memory[goal.goal_id] = goal
-    #
-    #     return goal
+
+@dataclass()
+class MappingMemory(S3ArtContents, DynamoDbMemoryEntries):
+    pass
 
 
 class ActionCallback(BaseModel):

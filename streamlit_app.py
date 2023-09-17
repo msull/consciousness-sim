@@ -127,6 +127,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
 
     with chat_col:
         with st.chat_message("ai", avatar=str(persona.avatar)):
+            st.info("Be patient, AI content generation can take 15-30 seconds per step!")
             thought_status = st.status("Starting a new thought...")
             task_placeholder = st.empty()
             with thought_status:

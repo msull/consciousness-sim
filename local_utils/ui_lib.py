@@ -2,7 +2,6 @@ import json
 from datetime import timedelta
 
 import streamlit as st
-from diskcache import Index
 from logzero import logger
 from pydantic import BaseModel, TypeAdapter
 from pydantic.v1 import BaseSettings
@@ -24,13 +23,13 @@ def setup_thought_memory() -> ThoughtMemory:
     return ThoughtMemory(table_name=settings.dynamodb_thoughts_table)
 
 
-@st.cache_resource
+# @st.cache_resource
 def setup_output_memory() -> OutputMemoryInterface:
     settings = StreamlitAppSettings.load()
-    art_storage = settings.app_data / "art_storage"
-    art_storage.mkdir(parents=True, exist_ok=True)
+    persona_manager = load_default_personas()
     return MappingMemory(
-        memory=Index(str(settings.app_data / "memory")),
+        table_name=settings.dynamodb_thoughts_table,
+        persona_manager=persona_manager,
         bucket_name=settings.s3_data_bucket,
         web_url=settings.s3_web_address,
         prefix="images",

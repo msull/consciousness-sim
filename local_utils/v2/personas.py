@@ -39,6 +39,9 @@ class Persona(BaseModel):
             descr += f"- **Physical Description**: {self.physical_description}\n"
         return descr
 
+    def get_persona_slug(self) -> str:
+        return self.name.replace(".", "").replace(" ", "-").lower()
+
 
 class PersonaManager:
     def __init__(self, personas: List[Persona]):
