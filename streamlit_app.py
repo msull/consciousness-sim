@@ -102,7 +102,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
     #         "for every step; when enabled the thought will proceed without user interaction"
     #     ),
     # )
-    chat_col, info_col = st.columns((3, 1))
+    chat_col, info_col = st.columns((2, 1))
 
     if session.thought_id:
         thought = brain.thought_memory.read_thought(session.thought_id)
@@ -190,10 +190,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
                     st.button("Proceed with next step", use_container_width=True, type="primary", on_click=_do_continue)
                 with next(cols):
                     st.button(
-                        "Proceed with all remaining steps",
-                        use_container_width=True,
-                        type="primary",
-                        on_click=toggle_autocontinue,
+                        "Proceed with ALL steps", use_container_width=True, type="primary", on_click=toggle_autocontinue
                     )
 
             continue_thought_placeholder = st.empty()
@@ -209,7 +206,8 @@ def render_active_thought(brain: BrainV2, session: SessionData):
             session.continue_thought = False
 
     with info_col:
-        st.subheader("Plan")
+        st.divider()
+        st.subheader("My Plan")
 
         active_step_placeholder = None
         current_task = "Continuing thought..."
