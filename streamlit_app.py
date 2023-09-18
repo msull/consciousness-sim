@@ -41,6 +41,71 @@ class SessionData(BaseSessionData):
     last_full_response: Optional[str] = None
 
 
+def render_intro():
+    st.header("Persona simulator")
+    st.write(
+        "In this app, I've defined (primarily via "
+        "[ChatGPT](https://chat.openai.com/share/ab6c9a51-aae1-4220-aad4-f26ec7f1ca54)) a number of "
+        "different **personas**, "
+        "represented as a paragraph of text, a list of interests, physical description, "
+        "and writing style description. "
+        "I've then given them access to a number of **tools** for internal "
+        "reflection and external expression and defined a workflow wherein the persona is guided to "
+        "choose their own task (guided by the tools they can access), they plan how to "
+        "execute the task, and then do it."
+    )
+
+    with st.expander("Tools available to the AI"):
+        st.write("This is the complete list and wording of the tools the AI is given")
+        st.code(prompts.AVAILALBLE_TOOLS)
+
+    st.write(
+        "I've seen firsthand after having worked pretty extensively with GPT 3.5 and GPT 4 is that they "
+        "are supremely effective general purpose taskers and reasoning engines. "
+        "A video I watched several months ago really opened my mind to the idea of AGI, "
+        "and that is when I first started playing with LLMs and developing techniques to get "
+        "them to reliably behave in the way I wanted. "
+    )
+    st.write(
+        "[Youtube Video: Sparks of AGI: early experiments with GPT-4](https://www.youtube.com/watch?v=qbIk7-JPB2c)"
+    )
+    st.write(
+        "But LLMs by themselves lack any kind of internal monologue or capacity to set their own"
+        " goals and take action on them. This is an experiment to give them that capability, "
+        "_in a very limited way_, and see what they do."
+    )
+    with st.expander("Some previous LLM experiements..."):
+        st.write(
+            """
+Some previous experiments streamlit apps:
+
+* [Emily Tarot](https://emilytarot.com) - GPT powered tarot readings -- my first LLM app. Very interesting to play with (and to review the sessions of others and see all the emergent behavior).
+* [Little Cat Tales](https://littlecattales.com) - GPT-powered choose-your-own-adventure style stories about two cats; first attempt at getting AI to generate art -- the gallery on the main page is really fun to look at.
+* [The Trouble With Bridges](https://thetroublewithbridges.com) - GPT powered micro/5-minute RPG game; a step up in prompting complexity, this is a simple game where the player is a wizard, casting a single spell to bypass a troll bridge guardian, with an AI Generated haiku about the spell as a prize for crossing the bridge.
+"""
+        )  # ruff: noqa: E501
+
+    st.write(
+        "To get started, I'd recommend going to the AI Output Gallery tab, "
+        'filtering the content type to "Social Posts" and scrolling through to get a sense of '
+        "the different style of content each of the personas is producing. "
+        'When you see a piece of content you find interesting, use the "Load Thought" button '
+        "(may not be available on the newest generated content if that thought is still in progress) "
+        "button to explore what a Task and implementation plan looks like. "
+    )
+    st.write(
+        "Finally return here, to use the form below, select a persona of your choosing, "
+        "and give them their next thought. As it progress you'll be able to see inside their "
+        "thought process as they gather research, journal about their emotional response, "
+        "create art, and make various types of postings. "
+    )
+    st.write(
+        "I've got a million more ideas on where to go from here. This has been a ton of fun so hack on, "
+        "and huge thanks to Clarifai for access to their GPT4 and stable-diffusion-xl resources!"
+    )
+    st.write("- Sully")
+
+
 def main(session: SessionData):
     brain = ui.setup_brain()
 
@@ -48,67 +113,6 @@ def main(session: SessionData):
 
     try:
         with main_tab:
-            st.header("Persona simulator")
-            st.write(
-                "In this app, I've defined (primarily via ChatGPT) a number of different **personas**, "
-                "represented as a paragraph of text, a list of interests, physical description, "
-                "and writing style description. "
-                "I've then given them access to a number of **tools** for internal "
-                "reflection and external expression and defined a workflow wherein the persona is guided to "
-                "choose their own task (guided by the tools they can access), they plan how to "
-                "execute the task, and then do it."
-            )
-
-            with st.expander("Tools available to the AI"):
-                st.write("This is the complete list and wording of the tools the AI is given")
-                st.code(prompts.AVAILALBLE_TOOLS)
-
-            st.write(
-                "I've seen firsthand after having worked pretty extensively with GPT 3.5 and GPT 4 is that they "
-                "are supremely effective general purpose taskers and reasoning engines. "
-                "A video I watched several months ago really opened my mind to the idea of AGI, "
-                "and that is when I first started playing with LLMs and developing techniques to get "
-                "them to reliably behave in the way I wanted. "
-            )
-            st.write(
-                "[Youtube Video: Sparks of AGI: early experiments with GPT-4](https://www.youtube.com/watch?v=qbIk7-JPB2c)"
-            )
-            st.write(
-                "But LLMs by themselves lack any kind of internal monologue or capacity to set their own"
-                " goals and take action on them. This is an experiment to give them that capability, "
-                "_in a very limited way_, and see what they do."
-            )
-            with st.expander("Some previous LLM experiements..."):
-                st.write(
-                    """
-Some previous experiments streamlit apps:
-
-* [Emily Tarot](https://emilytarot.com) - GPT powered tarot readings -- my first LLM app. Very interesting to play with (and to review the sessions of others and see all the emergent behavior).
-* [Little Cat Tales](https://littlecattales.com) - GPT-powered choose-your-own-adventure style stories about two cats; first attempt at getting AI to generate art -- the gallery on the main page is really fun to look at.
-* [The Trouble With Bridges](https://thetroublewithbridges.com) - GPT powered micro/5-minute RPG game; a step up in prompting complexity, this is a simple game where the player is a wizard, casting a single spell to bypass a troll bridge guardian, with an AI Generated haiku about the spell as a prize for crossing the bridge.
-"""
-                )  # ruff: noqa: E501
-
-            st.write(
-                "To get started, I'd recommend going to the AI Output Gallery tab, "
-                'filtering the content type to "Social Posts" and scrolling through to get a sense of '
-                "the different style of content each of the personas is producing. "
-                'When you see a piece of content you find interesting, use the "Load Thought" button '
-                "(may not be available on the newest generated content if that thought is still in progress) "
-                "button to explore what a Task and implementation plan looks like. "
-            )
-            st.write(
-                "Finally return here, to use the form below, select a persona of your choosing, "
-                "and give them their next thought. As it progress you'll be able to see inside their "
-                "thought process as they gather research, journal about their emotional response, "
-                "create art, and make various types of postings. "
-            )
-            st.write(
-                "I've got a million more ideas on where to go from here. This has been a ton of fun so hack on, "
-                "and huge thanks to Clarifai for access to their GPT4 and stable-diffusion-xl resources!"
-            )
-            st.write("- Sully")
-
             # intro = """
             #     The *Consciousness Simulator* is designed to simulate AI-driven thought processes and tasks in an interactive environment. Here's how it works:
             #
@@ -134,7 +138,7 @@ Some previous experiments streamlit apps:
             container = st.container()
             if not (session.initialize_new_thought or session.thought_id):
                 with container:
-                    # st.write(intro)
+                    render_intro()
                     with st.expander("Begin a new thought or review a recent one"):
                         render_thought_selection(brain, session)
             else:
@@ -409,6 +413,16 @@ def render_ai_output(brain: BrainV2):
             case _:
                 st.error("UNHANDLED OUTPUT ENTRY")
 
+        st.caption("All content generated by AI")
+        st.caption(f"Generated by thought {entry.thought_id}")
+
+        if st.button("Load thought", key=f"gallery-{entry.thought_id}"):
+            session.clear_session()
+            session.thought_id = entry.thought_id
+            ui.force_home_tab()
+            st.experimental_rerun()
+        st.divider()
+
 
 def render_ai_output_blog(brain: BrainV2, entry: BlogEntry):
     persona = brain.personas.get_persona_by_name(entry.persona_name)
@@ -435,8 +449,6 @@ def render_ai_output_blog(brain: BrainV2, entry: BlogEntry):
                 for art in entry.generated_art[idx:]:
                     st.image(brain.output_memory.get_art_content_location(art))
             # st.write(entry.format())
-    st.caption("All content generated by AI")
-    st.divider()
 
 
 def render_ai_output_art(brain: BrainV2, art: PieceOfArt):
@@ -464,8 +476,6 @@ def render_ai_output_art(brain: BrainV2, art: PieceOfArt):
                 st.image(art_contents)
             else:
                 st.write("Artwork not yet rendered")
-    st.caption("All content generated by AI")
-    st.divider()
 
 
 def render_ai_output_journal(brain: BrainV2, entry: JournalEntry):
@@ -476,8 +486,6 @@ def render_ai_output_journal(brain: BrainV2, entry: JournalEntry):
         st.write(date_as_pacific.strftime("%d %b %Y %l:%M %p"))
     with st.expander("View journal entry"):
         st.write(entry.content)
-    st.caption("All content generated by AI")
-    st.divider()
 
 
 def render_ai_output_social(brain: BrainV2, entry: SocialPost):
@@ -489,9 +497,6 @@ def render_ai_output_social(brain: BrainV2, entry: SocialPost):
     st.write(entry.content)
     if entry.generated_art:
         st.image(brain.output_memory.get_art_content_location(entry.generated_art))
-
-    st.caption("All content generated by AI")
-    st.divider()
 
 
 def render_recent_thoughts(brain: BrainV2):
