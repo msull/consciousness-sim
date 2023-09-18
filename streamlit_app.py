@@ -192,7 +192,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
 
     with chat_col:
         with st.chat_message("ai", avatar=str(persona.avatar)):
-            st.info("Be patient, AI content generation can take 30 or seconds per step!")
+            st.info("Be patient, AI content generation can take 30 or more seconds per step!")
             st.warning(
                 "Note that I've seen an uptick in model output failures for both GPT4 and stable-diffusion; "
                 "after an error during a step, using Streamlit's rerun capability will retrigger the failed process."
