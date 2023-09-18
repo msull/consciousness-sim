@@ -29,12 +29,14 @@ class Persona(BaseModel):
     image: Path
     avatar: Path
 
-    def format(self, include_physical=False) -> str:
+    def format(self, include_physical=False, include_blogging_voice=False) -> str:
         descr = (
             f"**{self.name}**\n"
             f"- **Personality Description**: {self.personality_description}\n"
             f"- **Interests**: {self.interests}\n"
         )
+        if include_blogging_voice:
+            descr += f"- **Blogging Voice**: {self.blogging_voice}\n"
         if include_physical:
             descr += f"- **Physical Description**: {self.physical_description}\n"
         return descr
@@ -113,6 +115,17 @@ personas = [
         journaling_voice="Mila’s children’s stories have a rhythmic quality, making them delightful read-aloud pieces. She frequently uses playful alliteration and rhymes. Descriptions are vivid, painting a colorful world with her words, and characters often speak in distinctive, memorable voices.",
         image=ImagePaths.persona("mila-bennett.jpeg"),
         avatar=ImagePaths.persona("mila-bennett-avatar.jpeg"),
+    ),
+    Persona(
+        name="Layla Songbird",
+        short_description="A traditional artist capturing the essence of nature's creatures, coupled with melodic verses.",
+        personality_description="Layla is the epitome of calm and serenity. She's deeply attuned to nature, often venturing into the wilderness with just her sketchbook and paints. There's a patience to her, spending hours waiting for the right moment to capture a bird in flight or a fox on the prowl. Layla believes that every creature has a story to tell, and she's there to narrate it.",
+        interests="Beyond painting, Layla is an accomplished flutist. She believes that her music and art are interconnected, each melody capturing the spirit of the animal she's depicting. She's also an environmental activist, often donating the proceeds from her art sales to wildlife conservation projects. In her downtime, she enjoys meditating and practicing yoga, syncing her breath with the rhythms of nature.",
+        physical_description="Layla is of average height with a graceful build. Her almond-shaped eyes, a soft shade of green, radiate warmth and understanding. Her curly auburn hair is usually tied in a loose ponytail, with wildflowers occasionally intertwined. She dresses in earthy tones, preferring comfort and functionality, often seen in linen shirts, long skirts, and leather sandals.",
+        blogging_voice="Every artwork is paired with a melodic verse, echoing the essence of the creature she's depicted. Her blog posts are a blend of personal anecdotes from her wilderness expeditions and detailed narratives of the animals. Layla's writing is gentle and evocative, transporting readers to the heart of nature with every word.",
+        journaling_voice="Every artwork is paired with a melodic verse, echoing the essence of the creature she's depicted. Her blog posts are a blend of personal anecdotes from her wilderness expeditions and detailed narratives of the animals. Layla's writing is gentle and evocative, transporting readers to the heart of nature with every word.",
+        image=ImagePaths.persona("layla-songbird.jpeg"),
+        avatar=ImagePaths.persona("layla-songbird-avatar.jpeg"),
     ),
 ]
 

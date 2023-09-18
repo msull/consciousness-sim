@@ -99,7 +99,9 @@ Respond now, ensuring your Task begins with "I will"
 
 def get_new_thought(persona: "Persona", recent_actions: str):
     return GET_NEW_THOUGHT.format(
-        persona=persona.format(include_physical=True), recent_actions=recent_actions, tools=AVAILALBLE_TOOLS
+        persona=persona.format(include_physical=True, include_blogging_voice=True),
+        recent_actions=recent_actions,
+        tools=AVAILALBLE_TOOLS,
     )
 
 
