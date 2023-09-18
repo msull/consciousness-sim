@@ -46,12 +46,6 @@ def main(session: SessionData):
     main_tab, ai_output_tab, thoughts_tab, debug_tab = ui.render_tabbar()
 
     try:
-        with ai_output_tab:
-            render_ai_output(brain)
-
-        with thoughts_tab:
-            render_recent_thoughts(brain)
-
         with main_tab:
             st.header("Consciousness Simulator")
 
@@ -88,6 +82,12 @@ def main(session: SessionData):
                     with st.expander("Site intro"):
                         st.write(intro)
                     render_active_thought(brain, session)
+
+        with ai_output_tab:
+            render_ai_output(brain)
+
+        with thoughts_tab:
+            render_recent_thoughts(brain)
     finally:
         with debug_tab:
             ui.render_debug_tab(session)

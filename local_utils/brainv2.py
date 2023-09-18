@@ -360,7 +360,7 @@ class DynamoDbMemoryEntries(OutputMemoryInterface, ABC):
         dynamodb_data = {
             "pk": f"aic|{ai_content.get_content_id()}",
             "sk": content_type,
-            "gsi1pk": f"{content_type}##{persona_name}",
+            "gsi1pk": f"{content_type}#{persona_name}",
             "data": output,
         }
         return dynamodb_data
@@ -400,6 +400,7 @@ class DynamoDbMemoryEntries(OutputMemoryInterface, ABC):
         self, content_type: Type[_T], persona_name: Optional[str] = None, ascending=False, limit: int = 10
     ) -> list[_T]:
         if persona_name:
+            breakpoint()
             persona_slug = self.persona_manager.get_persona_by_name(persona_name).get_persona_slug()
             index = "gsi1"
             key = f"{content_type.__name__}#{persona_slug}"
