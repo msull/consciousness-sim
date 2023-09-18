@@ -400,7 +400,6 @@ class DynamoDbMemoryEntries(OutputMemoryInterface, ABC):
         self, content_type: Type[_T], persona_name: Optional[str] = None, ascending=False, limit: int = 10
     ) -> list[_T]:
         if persona_name:
-            breakpoint()
             persona_slug = self.persona_manager.get_persona_by_name(persona_name).get_persona_slug()
             index = "gsi1"
             key = f"{content_type.__name__}#{persona_slug}"
