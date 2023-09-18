@@ -33,6 +33,7 @@ class SessionData(BaseSessionData):
     session_started: datetime = Field(default_factory=datetime.now)
     initialize_new_thought: bool = False
     continue_thought: bool = False
+    autocontinue_thought: bool = False
     initialize_thought_persona: Optional[Persona] = None
     initialize_thought_nudge: Optional[str] = None
     thought_id: Optional[str] = None
@@ -94,13 +95,13 @@ def main(session: SessionData):
 
 
 def render_active_thought(brain: BrainV2, session: SessionData):
-    proceed_automatically = st.toggle(
-        "Allow thought to proceed automatically",
-        help=(
-            "When disabled, the user must click to continue the thought "
-            "for every step; when enabled the thought will proceed without user interaction"
-        ),
-    )
+    # proceed_automatically = st.toggle(
+    #     "Allow thought to proceed automatically",
+    #     help=(
+    #         "When disabled, the user must click to continue the thought "
+    #         "for every step; when enabled the thought will proceed without user interaction"
+    #     ),
+    # )
     chat_col, info_col = st.columns((3, 1))
 
     if session.thought_id:
@@ -174,14 +175,26 @@ def render_active_thought(brain: BrainV2, session: SessionData):
 
             st.write(f"**{next_step.tool_name}: {next_step.purpose}**")
 
-            def clicked():
+            def _do_continue():
                 session.continue_thought = True
 
-            if proceed_automatically:
-                clicked()
+            def toggle_autocontinue():
+                session.autocontinue_thought = not session.autocontinue_thought
+
+            if session.autocontinue_thought:
+                _do_continue()
 
             if not session.continue_thought:
-                st.button("Continue thought", use_container_width=True, type="primary", on_click=clicked)
+                cols = iter(st.columns(2))
+                with next(cols):
+                    st.button("Proceed with next step", use_container_width=True, type="primary", on_click=_do_continue)
+                with next(cols):
+                    st.button(
+                        "Proceed with all remaining steps",
+                        use_container_width=True,
+                        type="primary",
+                        on_click=toggle_autocontinue,
+                    )
 
             continue_thought_placeholder = st.empty()
 
@@ -195,6 +208,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
                 st.write(thought.context)
             session.continue_thought = False
 
+    with info_col:
         st.subheader("Plan")
 
         active_step_placeholder = None

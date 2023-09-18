@@ -12,7 +12,7 @@ T = TypeVar("T", bound=BaseModel)
 
 def date_id(now=None):
     now = now or datetime.utcnow()
-    return now.strftime("%Y%m%d%H%M") + "".join(random.choices(ascii_lowercase, k=6))
+    return now.strftime("%Y%m%d%H%M%S") + "".join(random.choices(ascii_lowercase, k=6))
 
 
 class BaseSessionData(BaseModel):

@@ -67,7 +67,7 @@ class BaseAiContent(BaseModel, ABC):
         return md5(self.ai_content().encode()).hexdigest()
 
     def get_content_id(self, include_type_identifier: bool = False) -> str:
-        content_id = self.date_added.strftime("%Y%m%d%H%M") + self.content_hash()[:5]
+        content_id = self.date_added.strftime("%Y%m%d%H%M%S") + self.content_hash()[:5]
         if include_type_identifier:
             class_name = self.__class__.__name__
             content_id = f"{class_name}:{content_id}"
