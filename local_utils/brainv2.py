@@ -815,10 +815,9 @@ class BrainV2(BrainInterface):
 
         generated_art = []
         if thought.generated_content_ids:
-            latest_art_id = sorted(
-                [x for x in thought.generated_content_ids if x.startswith(PieceOfArt.__name__)], reverse=True
-            )[0]
-            generated_art.append(self.output_memory.read_content_with_type(latest_art_id))
+            art_ids = [x for x in thought.generated_content_ids if x.startswith(PieceOfArt.__name__)]
+            for art_id in art_ids:
+                generated_art.append(self.output_memory.read_content_with_type(art_id))
 
         if generated_art:
             self.logger.info(f"Found {len(generated_art)} art pieces to use with blog")

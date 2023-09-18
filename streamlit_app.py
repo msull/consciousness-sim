@@ -1,7 +1,6 @@
 import re
 from datetime import datetime
 from pathlib import Path
-from textwrap import dedent
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -23,6 +22,7 @@ from local_utils.brainv2 import (
     SocialPost,
 )
 from local_utils.session_data import BaseSessionData
+from local_utils.v2 import prompts
 from local_utils.v2.personas import Persona
 from local_utils.v2.thoughts import Thought
 
@@ -48,25 +48,84 @@ def main(session: SessionData):
 
     try:
         with main_tab:
-            st.header("Consciousness Simulator")
+            st.header("Persona simulator")
+            st.write(
+                "In this app, I've defined (primarily via ChatGPT) a number of different **personas**, "
+                "represented as a paragraph of text, a list of interests, physical description, "
+                "and writing style description. "
+                "I've then given them access to a number of **tools** for internal "
+                "reflection and external expression and defined a workflow wherein the persona is guided to "
+                "choose their own task (guided by the tools they can access), they plan how to "
+                "execute the task, and then do it."
+            )
 
-            intro = """
-                The *Consciousness Simulator* is designed to simulate AI-driven thought processes and tasks in an interactive environment. Here's how it works:
-                
-                - **Tools and Interactions**: The AI is equipped with a diverse toolkit to interact with the world. From querying information, crafting art, keeping a journal, to publishing blog posts, the AI has been designed to have multi-dimensional engagements.
-                
-                - **Starting a Thought**: Initiate a thought by selecting a **Persona**. This persona shapes the AI's approach, bringing unique characteristics and inclinations to the table.
-                
-                - **Decision Making**: Once initiated, the AI considers various factors to decide on its next task. It factors in recent activities, inherent personality traits, set goals, and an optional provided "nudge" to determine the best course of action. The AI's available tools play a pivotal role in this decision-making process.
-                
-                - **Planning & Execution**: After settling on a task, the AI plans the steps needed to achieve it. Watch as it maps out its strategy and then dives into execution, harnessing its vast toolkit.
-                
-                - **Exploring Outputs**: The app provides dedicated tabs where you can view the tangible results of the AI's endeavors. Visit the output tab to witness its artistic creations and introspective entries.
-                
-                **Head to the AI Output Gallery tab to see the latest generated content, and then come back here to start a new thought or review a previous one.**
-            """  # noqa: E501
+            with st.expander("Tools available to the AI"):
+                st.write("This is the complete list and wording of the tools the AI is given")
+                st.code(prompts.AVAILALBLE_TOOLS)
 
-            intro = dedent(intro)
+            st.write(
+                "I've seen firsthand after having worked pretty extensively with GPT 3.5 and GPT 4 is that they "
+                "are supremely effective general purpose taskers and reasoning engines. "
+                "A video I watched several months ago really opened my mind to the idea of AGI, "
+                "and that is when I first started playing with LLMs and developing techniques to get "
+                "them to reliably behave in the way I wanted. "
+            )
+            st.write(
+                "[Youtube Video: Sparks of AGI: early experiments with GPT-4](https://www.youtube.com/watch?v=qbIk7-JPB2c)"
+            )
+            st.write(
+                "But LLMs by themselves lack any kind of internal monologue or capacity to set their own"
+                " goals and take action on them. This is an experiment to give them that capability, "
+                "_in a very limited way_, and see what they do."
+            )
+            with st.expander("Some previous LLM experiements..."):
+                st.write(
+                    """
+Some previous experiments streamlit apps:
+
+* [Emily Tarot](https://emilytarot.com) - GPT powered tarot readings -- my first LLM app. Very interesting to play with (and to review the sessions of others and see all the emergent behavior).
+* [Little Cat Tales](https://littlecattales.com) - GPT-powered choose-your-own-adventure style stories about two cats; first attempt at getting AI to generate art -- the gallery on the main page is really fun to look at.
+* [The Trouble With Bridges](https://thetroublewithbridges.com) - GPT powered micro/5-minute RPG game; a step up in prompting complexity, this is a simple game where the player is a wizard, casting a single spell to bypass a troll bridge guardian, with an AI Generated haiku about the spell as a prize for crossing the bridge.
+"""
+                )  # ruff: noqa: E501
+
+            st.write(
+                "To get started, I'd recommend going to the AI Output Gallery tab, "
+                'filtering the content type to "Social Posts" and scrolling through to get a sense of '
+                "the different style of content each of the personas is producing. "
+                'When you see a piece of content you find interesting, use the "Load Thought" button '
+                "(may not be available on the newest generated content if that thought is still in progress) "
+                "button to explore what a Task and implementation plan looks like. "
+            )
+            st.write(
+                "Finally return here, to use the form below, select a persona of your choosing, "
+                "and give them their next thought. As it progress you'll be able to see inside their "
+                "thought process as they gather research, journal about their emotional response, "
+                "create art, and make various types of postings. "
+            )
+            st.write(
+                "I've got a million more ideas on where to go from here. This has been a ton of fun so hack on, "
+                "and huge thanks to Clarifai for access to their GPT4 and stable-diffusion-xl resources!"
+            )
+            st.write("- Sully")
+
+            # intro = """
+            #     The *Consciousness Simulator* is designed to simulate AI-driven thought processes and tasks in an interactive environment. Here's how it works:
+            #
+            #     - **Tools and Interactions**: The AI is equipped with a diverse toolkit to interact with the world. From querying information, crafting art, keeping a journal, to publishing blog posts, the AI has been designed to have multi-dimensional engagements.
+            #
+            #     - **Starting a Thought**: Initiate a thought by selecting a **Persona**. This persona shapes the AI's approach, bringing unique characteristics and inclinations to the table.
+            #
+            #     - **Decision Making**: Once initiated, the AI considers various factors to decide on its next task. It factors in recent activities, inherent personality traits, set goals, and an optional provided "nudge" to determine the best course of action. The AI's available tools play a pivotal role in this decision-making process.
+            #
+            #     - **Planning & Execution**: After settling on a task, the AI plans the steps needed to achieve it. Watch as it maps out its strategy and then dives into execution, harnessing its vast toolkit.
+            #
+            #     - **Exploring Outputs**: The app provides dedicated tabs where you can view the tangible results of the AI's endeavors. Visit the output tab to witness its artistic creations and introspective entries.
+            #
+            #     **Head to the AI Output Gallery tab to see the latest generated content, and then come back here to start a new thought or review a previous one.**
+            # """  # noqa: E501
+
+            # intro = dedent(intro)
 
             if session.thought:
                 for x in range(session.thought.steps_completed + 1):
@@ -75,13 +134,11 @@ def main(session: SessionData):
             container = st.container()
             if not (session.initialize_new_thought or session.thought_id):
                 with container:
-                    st.write(intro)
+                    # st.write(intro)
                     with st.expander("Begin a new thought or review a recent one"):
                         render_thought_selection(brain, session)
             else:
                 with container:
-                    with st.expander("Site intro"):
-                        st.write(intro)
                     render_active_thought(brain, session)
 
         with ai_output_tab:
