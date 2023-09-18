@@ -82,7 +82,7 @@ def render_intro():
         "the different style of content each of the personas is producing. "
         'When you see a piece of content you find interesting, use the "Load Thought" button '
         "(may not be available on the newest generated content if that thought is still in progress) "
-        "button to explore what a Task and implementation plan looks like. "
+        "to explore what a Task and implementation plan looks like. "
     )
     st.write(
         "Finally return here, to use the form below, select a persona of your choosing, "
