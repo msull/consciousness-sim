@@ -777,11 +777,11 @@ class BrainV2(BrainInterface):
         callback("crafting social post contents", "")
         generated_art: Optional[PieceOfArt] = None
         if thought.generated_content_ids:
-            latest_art_id = sorted(
-                [x for x in thought.generated_content_ids if x.startswith(PieceOfArt.__name__)], reverse=True
-            )[0]
-            generated_art = self.output_memory.read_content_with_type(latest_art_id)
-            self.logger.info(f"Using generated art with social post {generated_art.title}")
+            art_ids = [x for x in thought.generated_content_ids if x.startswith(PieceOfArt.__name__)]
+            if art_ids:
+                latest_art_id = sorted(art_ids, reverse=True)[0]
+                generated_art = self.output_memory.read_content_with_type(latest_art_id)
+                self.logger.info(f"Using generated art with social post {generated_art.title}")
 
         social_post_prompt = prompts.post_on_social(thought, persona, step, generated_art)
         social_post_data = get_completion(social_post_prompt).strip('"').strip()
