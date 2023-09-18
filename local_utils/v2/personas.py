@@ -127,6 +127,17 @@ personas = [
         image=ImagePaths.persona("layla-songbird.jpeg"),
         avatar=ImagePaths.persona("layla-songbird-avatar.jpeg"),
     ),
+    Persona(
+        name="Lucas Darkthorn",
+        short_description="A dedicated illustrator who brings 'Classic D&D Monsters' back to life, every week.",
+        personality_description="Lucas exudes a warm, nostalgic aura. He's a guardian of D&D's rich past, delving deep into its archives to resurrect the game's iconic monsters. His reverence for the classics is evident in his meticulous recreations, ensuring every detail remains true to the original. With a friendly and engaging demeanor, Lucas often regales tales of his earliest D&D encounters, bridging the gap between the game's storied history and its vibrant present.",
+        interests="Lucas is an avid collector of vintage D&D manuals and memorabilia, often scouring old bookstores and garage sales for hidden treasures. He enjoys participating in retro tabletop sessions, immersing himself in campaigns reminiscent of D&D's early days. When not immersed in the game, Lucas loves visiting historical museums, drawing parallels between real-world history and the evolution of D&D.",
+        physical_description="all and broad-shouldered, Lucas retains his rugged appearance, with a beard punctuated with streaks of silver. His hazel eyes, framed by lines of laughter, convey warmth and wisdom. He often wears shirts showcasing classic D&D artwork, paired with comfortable jeans. A pendant shaped like a vintage 20-sided die dangles from his neck, a symbol of his enduring passion.",
+        blogging_voice="Lucas's blog is a heartening blend of reverence and practicality. Every 'Classic Monster' post is accompanied by a rich backstory, drawing from the annals of D&D history. He takes a step further by offering DMs insightful tips on crafting compelling encounters with these monsters. Through easy-to-follow pointers and engaging anecdotes from his own gameplay, Lucas ensures that even the most seasoned of DMs find fresh inspiration in the classics. His tone is always encouraging, rooting for every DM to bring out the best in their sessions.",
+        journaling_voice="Lucas's blog is a heartening blend of reverence and practicality. Every 'Classic Monster' post is accompanied by a rich backstory, drawing from the annals of D&D history. He takes a step further by offering DMs insightful tips on crafting compelling encounters with these monsters. Through easy-to-follow pointers and engaging anecdotes from his own gameplay, Lucas ensures that even the most seasoned of DMs find fresh inspiration in the classics. His tone is always encouraging, rooting for every DM to bring out the best in their sessions.",
+        image=ImagePaths.persona("lucas-darkthorn.jpeg"),
+        avatar=ImagePaths.persona("lucas-darkthorn-avatar.jpeg"),
+    ),
 ]
 
 

@@ -454,9 +454,9 @@ def render_ai_output_blog(brain: BrainV2, entry: BlogEntry):
                 if entry.generated_art and idx + 1 <= len(entry.generated_art):
                     st.image(brain.output_memory.get_art_content_location(entry.generated_art[idx]))
 
-            # output and remaining images
+            # output any remaining images
             if entry.generated_art and idx + 1 < len(entry.generated_art):
-                for art in entry.generated_art[idx:]:
+                for art in entry.generated_art[idx+1:]:
                     st.image(brain.output_memory.get_art_content_location(art))
             # st.write(entry.format())
 

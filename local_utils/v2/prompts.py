@@ -99,7 +99,7 @@ Respond now, ensuring your Task begins with "I will"
 
 def get_new_thought(persona: "Persona", recent_actions: str):
     return GET_NEW_THOUGHT.format(
-        persona=persona.format(include_physical=True, include_blogging_voice=True),
+        persona=persona.format(include_physical=False, include_blogging_voice=True),
         recent_actions=recent_actions,
         tools=AVAILALBLE_TOOLS,
     )
@@ -277,7 +277,7 @@ OUTPUT THE JOURNAL ENTRY NOW. DO NOT INCLUDE ANY ADDITIONAL TEXT OTHER THAN THE 
 def write_journal_entry(thought: "Thought", persona: "Persona", current_task: "PlanStep") -> str:
     return WRITE_JOURNAL_ENTRY.format(
         now=datetime.utcnow().isoformat(),
-        persona=persona.format(include_physical=True),
+        persona=persona.format(include_physical=False, include_blogging_voice=True),
         task_plan=thought.it_rationale,
         current_action=current_task.format(),
         current_context=thought.context or "Your context is currently blank",
