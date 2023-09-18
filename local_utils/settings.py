@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 
 
 class StreamlitAppSettings(BaseModel):
-    clarifai_pat: str = Field(default_factory=lambda: st.secrets["CLARIFAI_PAT"])
+    clarifai_pat: SecretStr = Field(default_factory=lambda: st.secrets["CLARIFAI_PAT"])
     openai_api_key: SecretStr = Field(default_factory=lambda: st.secrets["OPENAI_API_KEY"], validate_default=True)
 
     app_data: Path = Field(default_factory=lambda: Path(st.secrets["APP_DATA"]))

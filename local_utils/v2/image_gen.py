@@ -19,7 +19,7 @@ def generate_image(prompt: str) -> bytes:
     channel = ClarifaiChannel.get_grpc_channel()
     stub = service_pb2_grpc.V2Stub(channel)
 
-    metadata = (("authorization", "Key " + settings.clarifai_pat),)
+    metadata = (("authorization", "Key " + settings.clarifai_pat.get_secret_value()),)
 
     userDataObject = resources_pb2.UserAppIDSet(user_id=USER_ID, app_id=APP_ID)
 

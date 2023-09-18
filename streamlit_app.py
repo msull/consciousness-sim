@@ -43,7 +43,7 @@ class SessionData(BaseSessionData):
 
 def render_intro():
     st.header("Persona simulator")
-    st.caption('Produced during the Streamlit LLM hackathon, September 2023')
+    st.caption("Produced during the Streamlit LLM hackathon, September 2023")
     st.write(
         "In this app, I've defined (primarily via "
         "[ChatGPT](https://chat.openai.com/share/ab6c9a51-aae1-4220-aad4-f26ec7f1ca54)) a number of "
