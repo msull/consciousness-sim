@@ -49,11 +49,11 @@ class PersonaManager:
     def __init__(self, personas: List[Persona]):
         self.personas = personas
 
-    def get_persona_by_name(self, name: str) -> Optional[Persona]:
+    def get_persona_by_name(self, name: str) -> Persona:
         for persona in self.personas:
             if persona.name == name:
                 return persona
-        return None
+        raise ValueError(f"Unknown persona {name=}")
 
     def list_persona_names(self) -> List[str]:
         return [persona.name for persona in self.personas]
