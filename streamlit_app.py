@@ -26,7 +26,7 @@ from local_utils.v2 import prompts
 from local_utils.v2.personas import Persona
 from local_utils.v2.thoughts import Thought
 
-st.set_page_config("Conciousness Simulator", initial_sidebar_state="collapsed")
+st.set_page_config("Persona Simulator", initial_sidebar_state="collapsed")
 
 
 class SessionData(BaseSessionData):
@@ -60,8 +60,8 @@ def render_intro():
         st.code(prompts.AVAILALBLE_TOOLS)
 
     st.write(
-        "I've seen firsthand after having worked pretty extensively with GPT 3.5 and GPT 4 is that they "
-        "are supremely effective general purpose taskers and reasoning engines. "
+        "I've seen firsthand after having worked pretty extensively with GPT 3.5 and GPT 4 that they "
+        "are effective general purpose taskers and reasoning engines. "
         "A video I watched several months ago really opened my mind to the idea of AGI, "
         "and that is when I first started playing with LLMs and developing techniques to get "
         "them to reliably behave in the way I wanted. "
@@ -74,19 +74,9 @@ def render_intro():
         " goals and take action on them. This is an experiment to give them that capability, "
         "_in a very limited way_, and see what they do."
     )
-    with st.expander("Some previous LLM experiements..."):
-        st.write(
-            """
-Some previous experiments streamlit apps:
-
-* [Emily Tarot](https://emilytarot.com) - GPT powered tarot readings -- my first LLM app. Very interesting to play with (and to review the sessions of others and see all the emergent behavior).
-* [Little Cat Tales](https://littlecattales.com) - GPT-powered choose-your-own-adventure style stories about two cats; first attempt at getting AI to generate art -- the gallery on the main page is really fun to look at.
-* [The Trouble With Bridges](https://thetroublewithbridges.com) - GPT powered micro/5-minute RPG game; a step up in prompting complexity, this is a simple game where the player is a wizard, casting a single spell to bypass a troll bridge guardian, with an AI Generated haiku about the spell as a prize for crossing the bridge.
-"""
-        )  # ruff: noqa: E501
 
     st.write(
-        "To get started, I'd recommend going to the AI Output Gallery tab, "
+        "To get started, I'd recommend going to the **AI Output Gallery** tab, "
         'filtering the content type to "Social Posts" and scrolling through to get a sense of '
         "the different style of content each of the personas is producing. "
         'When you see a piece of content you find interesting, use the "Load Thought" button '
@@ -103,6 +93,16 @@ Some previous experiments streamlit apps:
         "I've got a million more ideas on where to go from here. This has been a ton of fun so hack on, "
         "and huge thanks to Clarifai for access to their GPT4 and stable-diffusion-xl resources!"
     )
+    with st.expander("My previous LLM experiments..."):
+        st.write(
+            """
+Some previous experiment streamlit apps:
+
+* [Emily Tarot](https://emilytarot.com) - GPT powered tarot readings -- my first LLM app. Very interesting to play with (and to review the sessions of others and see all the emergent behavior).
+* [Little Cat Tales](https://littlecattales.com) - GPT-powered choose-your-own-adventure style stories about two cats; first attempt at getting AI to generate art -- the gallery on the main page is really fun to look at.
+* [The Trouble With Bridges](https://thetroublewithbridges.com) - GPT powered micro/5-minute RPG game; a step up in prompting complexity, this is a simple game where the player is a wizard, casting a single spell to bypass a troll bridge guardian, with an AI Generated haiku about the spell as a prize for crossing the bridge.
+"""
+        )  # ruff: noqa: E501
     st.write("- Sully")
 
 
@@ -189,7 +189,11 @@ def render_active_thought(brain: BrainV2, session: SessionData):
 
     with chat_col:
         with st.chat_message("ai", avatar=str(persona.avatar)):
-            st.info("Be patient, AI content generation can take 15-30 seconds per step!")
+            st.info("Be patient, AI content generation can take 30 or seconds per step!")
+            st.warning(
+                "Note that I've seen an uptick in model output failures for both GPT4 and stable-diffusion; "
+                "after an error during a step, using Streamlit's rerun capability will retrigger the failed process."
+            )
             thought_status = st.status("Starting a new thought...")
             task_placeholder = st.empty()
             with thought_status:
@@ -202,7 +206,7 @@ def render_active_thought(brain: BrainV2, session: SessionData):
                     session.thought_id = thought.thought_id
                 st.write(thought.it_rationale)
                 with task_placeholder:
-                    st.write(thought.initial_thought)
+                    st.write('"' + thought.initial_thought + '"')
                 st.info("Developing task plan")
                 thought_status.update(label="Generating plan for task...")
                 if not thought.plan:
