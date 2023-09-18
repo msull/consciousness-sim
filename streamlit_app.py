@@ -43,6 +43,7 @@ class SessionData(BaseSessionData):
 
 def render_intro():
     st.header("Persona simulator")
+    st.caption('Produced during the Streamlit LLM hackathon, September 2023')
     st.write(
         "In this app, I've defined (primarily via "
         "[ChatGPT](https://chat.openai.com/share/ab6c9a51-aae1-4220-aad4-f26ec7f1ca54)) a number of "
@@ -103,7 +104,8 @@ Some previous experiment streamlit apps:
 * [The Trouble With Bridges](https://thetroublewithbridges.com) - GPT powered micro/5-minute RPG game; a step up in prompting complexity, this is a simple game where the player is a wizard, casting a single spell to bypass a troll bridge guardian, with an AI Generated haiku about the spell as a prize for crossing the bridge.
 """
         )  # ruff: noqa: E501
-    st.write("- Sully")
+    st.write("Created By: Sully Sullenberger")
+    st.write("[View on github](https://github.com/msull/consciousness-sim)")
 
 
 def main(session: SessionData):
@@ -139,7 +141,8 @@ def main(session: SessionData):
             if not (session.initialize_new_thought or session.thought_id):
                 with container:
                     render_intro()
-                    with st.expander("Begin a new thought or review a recent one"):
+                    st.divider()
+                    with st.expander("Begin a new thought or review a recent one", expanded=True):
                         render_thought_selection(brain, session)
             else:
                 with container:
