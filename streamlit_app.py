@@ -329,11 +329,6 @@ def render_thought_selection(brain: BrainV2, session: SessionData):
     persona_name = st.selectbox("Persona", brain.personas.list_persona_names())
     persona = brain.personas.get_persona_by_name(persona_name)
 
-    def _start_new():
-        session.initialize_new_thought = True
-        session.initialize_thought_nudge = user_nudge
-        session.initialize_thought_persona = persona
-
     c1, c2 = st.columns(2)
     with c1:
         st.write(persona.format())
@@ -344,7 +339,20 @@ def render_thought_selection(brain: BrainV2, session: SessionData):
 
     st.write("**Start new thought or view a recently completed one**")
 
-    user_nudge = st.text_input("Nudge thought", max_chars=100, disabled=True, help="Coming soon...") or None
+    user_nudge = (
+        st.text_input(
+            "Nudge thought",
+            max_chars=100,
+            help="Provide a suggestion as to the task the Persona should undertake",
+        )
+        or None
+    )
+
+    def _start_new():
+        session.initialize_new_thought = True
+        session.initialize_thought_nudge = user_nudge
+        session.initialize_thought_persona = persona
+
     st.button("Begin", on_click=_start_new, use_container_width=True)
 
     st.divider()

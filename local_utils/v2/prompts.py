@@ -72,6 +72,7 @@ Consider your recently completed actions, try not to repeat the exact action ove
 
 Define a plan on how to achieve this utilizing the available tools, 
 laying out the decisions you may need to make at each step using the following format:
+{user_nudge}
 
 ## RATIONALE
 
@@ -97,11 +98,18 @@ Respond now, ensuring your Task begins with "I will"
 """.strip()
 
 
-def get_new_thought(persona: "Persona", recent_actions: str):
+def get_new_thought(persona: "Persona", recent_actions: str, user_nudge: Optional[str] = None):
+    if user_nudge:
+        user_nudge = user_nudge.replace("\n", "")
+        user_nudge = (
+            f"\n\nA SYSTEM USER REQUESTED YOU INCORPORATE THE FOLLOWING INTO YOUR CHOSEN TASK; "
+            f"DO SO IF THE SUGGESTION IS IN-LINE WITH YOUR CHARACTER:\n\n\t^^^{user_nudge}^^^"
+        )
     return GET_NEW_THOUGHT.format(
         persona=persona.format(include_physical=False, include_blogging_voice=True),
         recent_actions=recent_actions,
         tools=AVAILALBLE_TOOLS,
+        user_nudge=user_nudge or "",
     )
 
 

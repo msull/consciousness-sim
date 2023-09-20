@@ -637,7 +637,7 @@ class BrainInterface(ABC):
     personas: PersonaManager
 
     def start_new_thought(self, persona: Persona, user_nudge: Optional[str]) -> Thought:
-        new_thought, rationale = self._get_initial_thought_for_persona(persona)
+        new_thought, rationale = self._get_initial_thought_for_persona(persona, user_nudge)
         new_thought_data = NewThoughtData(
             persona_name=persona.name, user_nudge=user_nudge, initial_thought=new_thought, it_rationale=rationale
         )
@@ -753,7 +753,7 @@ class BrainInterface(ABC):
         return get_completion(prompts.general_question_answer(questions))
 
     @abstractmethod
-    def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
+    def _get_initial_thought_for_persona(self, persona: Persona, user_nudge: Optional[str]) -> tuple[str, str]:
         pass
 
     @abstractmethod
@@ -958,7 +958,7 @@ class BrainV2(BrainInterface):
         ta = TypeAdapter(list[PlanStep])
         return ta.validate_python(data)
 
-    def _get_initial_thought_for_persona(self, persona: Persona) -> tuple[str, str]:
+    def _get_initial_thought_for_persona(self, persona: Persona, user_nudge: Optional[str]) -> tuple[str, str]:
         persona_name = persona.name
         my_recent_thoughts = [
             x for x in self.thought_memory.list_recently_completed_thoughts(10) if x.persona_name == persona_name
@@ -968,7 +968,7 @@ class BrainV2(BrainInterface):
         if not my_recent_actions:
             my_recent_actions = "I have not take any actions recently."
 
-        prompt = prompts.get_new_thought(persona=persona, recent_actions=my_recent_actions)
+        prompt = prompts.get_new_thought(persona=persona, recent_actions=my_recent_actions, user_nudge=user_nudge)
         response = get_completion(prompt)
         last_line = response.splitlines()[-1]
         if not last_line.startswith("I will"):
