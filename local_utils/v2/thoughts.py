@@ -143,9 +143,18 @@ class ThoughtMemory:
             raise ValueError("No item found with the provided key.")
         return Thought(**item)
 
-    def _query_to_thoughts(self, index: str, key_condition, limit: int = 25, ascending: bool = True) -> list[Thought]:
+    def _query_to_thoughts(
+        self, index: str, key_condition, limit: int = 25, ascending: bool = True, filter_expression=None
+    ) -> list[Thought]:
+        extra_kwargs = {}
+        if filter_expression:
+            extra_kwargs["FilterExpression"] = filter_expression
         data = self.dynamodb_table.query(
-            IndexName=index, KeyConditionExpression=key_condition, Limit=limit, ScanIndexForward=ascending
+            IndexName=index,
+            KeyConditionExpression=key_condition,
+            Limit=limit,
+            ScanIndexForward=ascending,
+            **extra_kwargs,
         )
         ta = TypeAdapter(list[Thought])
         return ta.validate_python(data["Items"])
