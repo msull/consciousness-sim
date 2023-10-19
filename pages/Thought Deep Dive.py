@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import streamlit as st
+
 from local_utils import deep_dive_text
 
 IMAGE_DIR = Path(__file__).parent.parent / "images" / "thought-deep-dive"
@@ -27,10 +28,23 @@ class Images:
     up_next_post_on_social = IMAGE_DIR / "16-up-next-post-on-social.png"
     posting_on_social = IMAGE_DIR / "17-posting-on-social.png"
     generated_art = IMAGE_DIR / "generated-art.png"
+    sequence = IMAGE_DIR / "sequence.png"
 
 
 def main():
     st.subheader('A deep dive into one "Thought"')
+
+    with st.expander("Sequence of a Thought"):
+        st.image(str(Images.sequence))
+        st.write(
+            "Main code that implement this process "
+            "https://github.com/msull/consciousness-sim/blob/6ab239a5fc2125f"
+            "3b7b7b60a846829cf55ccd6a9/local_utils/brainv2.py#L632-L707"
+        )
+    st.write(
+        "Prompt Templates: [Link](https://github.com/msull/consciousness-sim/blob/"
+        "6ab239a5fc2125f3b7b7b60a846829cf55ccd6a9/local_utils/v2/prompts.py)"
+    )
 
     st.write(
         "Thought `20231012161723yjliiv` was undertaken by persona Lucas Blackthorn, "
@@ -189,7 +203,7 @@ def render_plan_execution():
     st.write(
         "> Craft a long format blog post, incorporating the information, personal experiences, and the illustration to provide an immersive exploration of Beholders"
     )
-    st.write('Next, the blog post itself is written; the contents are added to the Context')
+    st.write("Next, the blog post itself is written; the contents are added to the Context")
     with st.expander("Full Prompt"):
         st.write("The complete prompt sent to GPT-4")
         st.code(deep_dive_text.write_blog_prompt)
@@ -198,7 +212,7 @@ def render_plan_execution():
 
     st.write("### PostOnSocial")
     st.write("> Share a link to the newly published blog post, inviting followers to delve into the world of Beholders")
-    st.write('Finally, a social media posting promoting the blog is written; the contents are added to the Context')
+    st.write("Finally, a social media posting promoting the blog is written; the contents are added to the Context")
     with st.expander("Full Prompt"):
         st.write("The complete prompt sent to GPT-4")
         st.code(deep_dive_text.write_social_prompt)

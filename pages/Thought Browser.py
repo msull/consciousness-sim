@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key
 from pydantic import Field
 
 from local_utils import ui_lib as ui
@@ -65,7 +65,6 @@ def main(session: SessionData):
         st.metric("Incomplete", len([x for x in thoughts if not x.thought_complete]))
 
     with next(cols):
-
         toggle_cols = iter(st.columns(3))
         with next(toggle_cols):
             newest_first = st.toggle("Newest First", value=False)

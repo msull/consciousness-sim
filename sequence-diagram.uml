@@ -1,0 +1,48 @@
+Title: Persona Simulator "Thought" Sequence
+
+// Workflow
+User -> StreamlitApp: Select Persona & Optionally Provide Nudge
+note right of StreamlitApp: User Initiates a Thought
+
+StreamlitApp -> DynamoDB: Write Thought Record
+DynamoDB -> StreamlitApp: Confirm Record Written
+
+StreamlitApp -> GPT-4: Send Detailed Prompt
+note over GPT-4: Includes Persona, Tools, Recent Actions, Nudge, etc.
+
+GPT-4 -> StreamlitApp: Decide Task, Provide Rationale & Plan
+
+// GPT-4 converts plan to JSON
+StreamlitApp -> GPT-4: Convert Plan to JSON
+GPT-4 -> StreamlitApp: Provide JSON Representation of Plan
+StreamlitApp -> DynamoDB: Update Thought with JSON Plan
+DynamoDB -> StreamlitApp: Confirm Update
+
+// User examines the plan
+StreamlitApp -> User: Display Plan & Rationale
+User -> StreamlitApp: Decide to Proceed or Not
+note right of StreamlitApp: User Can Choose "Auto-Proceed"
+
+// Execution of each plan step
+loop Each Step of the Plan
+    StreamlitApp -> GPT-4: Execute Step (possibly multiple prompts)
+    note over GPT-4: Some Steps involve Back and Forth / Multiple prompt interactions
+
+    alt Step Produces Journal Entry, Blog Post, or Social Media Post
+        StreamlitApp -> DynamoDB: Save Content
+    else Step Produces Image File
+        StreamlitApp -> stable-diffusion-xl: Generate Image
+        StreamlitApp -> S3: Save Image Blob
+    end
+
+    StreamlitApp -> DynamoDB: Update Thought Object
+    DynamoDB -> StreamlitApp: Confirm Update
+
+    note left of StreamlitApp: Check User's "Auto-Proceed" Choice
+    alt "Auto-Proceed" Disabled
+        StreamlitApp -> User: Await User's Decision to Continue
+        User -> StreamlitApp: Decision
+    end
+end
+StreamlitApp -> DynamoDB: Mark Thought complete
+

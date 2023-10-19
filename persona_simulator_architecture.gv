@@ -1,0 +1,14 @@
+// Persona Simulator System Architecture
+digraph {
+	UI [label="Streamlit App"]
+	BL [label="Backend Logic (\"Brain\")"]
+	GPT [label="GPT-4 (Clarifai)"]
+	SDXL [label="Stable-Diffusion-XL (Clarifai)"]
+	DB [label="AWS DynamoDB"]
+	S3 [label="AWS S3"]
+	UI -> BL [label="User interactions, trigger thoughts, review plan, etc."]
+	BL -> GPT [label="Use GPT-4 reasoning power"]
+	BL -> SDXL [label="Render generated art"]
+	BL -> DB [label="Store thoughts and AI produced content"]
+	BL -> S3 [label="Save rendered images"]
+}
